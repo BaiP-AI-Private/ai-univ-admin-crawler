@@ -19,22 +19,21 @@ This project is a scalable web crawler built with Python that extracts **univers
 ├── config.py               # Global settings (timeouts, selectors, reward values)
 ├── models
 │   ├── selector_agent.py   # AI model for CSS selector detection using Reinforcement Learning
-│   ├── rewards.py          # Defines reward system for AI model training
+│   └── rewards.py          # Defines reward system for AI model training
 ├── utils
 │   ├── data_utils.py       # Utility functions for saving extracted data
-│   ├── scraper_utils.py    # Web scraping utility functions
+│   └── scraper_utils.py    # Web scraping utility functions
 ├── data
-│   ├── universities.json   # List of university URLs for the scraper
+│   └── universities.json   # List of university URLs for the scraper
 ├── k8s/
 │   ├── deployment.yaml     # Kubernetes deployment file
 │   ├── service.yaml        # Kubernetes service file
-│   ├── helm-chart/         # Helm chart for easier deployment
+│   └── helm-chart/         # Helm chart for easier deployment
 ├── Dockerfile              # Containerization setup
 ├── requirements.txt        # Python dependencies (Also at root)
 ├── .env                    # Environment variables (API keys)
 ├── .gitignore              # Ignores env & compiled files
 └── README.md               # Deployment instructions
-
 ```
 
 ## **Installation Steps**
