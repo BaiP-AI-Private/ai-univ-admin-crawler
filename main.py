@@ -19,12 +19,18 @@ async def fetch_html(session, url):
         return None
 
 async def scrape_universities(universities):
-    """Scrapes university websites asynchronously."""
+    """Scrapes university websites and extracts structured text."""
     async with aiohttp.ClientSession() as session:
         tasks = [fetch_html(session, uni["url"]) for uni in universities]
         results = await asyncio.gather(*tasks)
 
-    university_data = [{"name": uni["name"], "url": uni["url"], "html": html} for uni, html in zip(universities, results)]
+    university_data = []
+    for uni, html in zip(universities, results):
+        if html:
+            soup = BeautifulSoup(html, "html.parser")
+            text = soup.get_text(separator=" ").strip()[:5000]  # Extract readable text
+            university_data.append({"name": uni["name"], "url": uni["url"], "html": text})
+
     return university_data
 
 async def main():
