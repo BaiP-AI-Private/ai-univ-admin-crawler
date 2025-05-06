@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install system dependencies (Required for `aiohttp`, `pandas`)
+      - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y build-essential gcc g++ python3-dev
