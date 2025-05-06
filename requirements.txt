@@ -5,7 +5,7 @@ pydantic==1.10.7
 requests==2.31.0
 uvicorn==0.22.0
 transformers==4.31.0
-torch==2.0.1
+torch==2.2.0
 pandas==1.5.3
 python-dotenv==1.0.0
 tqdm==4.65.0
