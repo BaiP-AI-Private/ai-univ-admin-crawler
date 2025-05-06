@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deepseek-crawler
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: deepseek-crawler
+  template:
+    metadata:
+      labels:
+        app: deepseek-crawler
+    spec:
+      containers:
+      - name: deepseek-crawler
+        image: your-docker-username/deepseek-crawler:v1
+        ports:
+        - containerPort: 8000

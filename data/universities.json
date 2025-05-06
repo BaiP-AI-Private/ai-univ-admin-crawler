@@ -1,0 +1,26 @@
+[
+    {
+        "name": "Harvard University",
+        "url": "https://www.harvard.edu/admissions"
+    },
+    {
+        "name": "MIT",
+        "url": "https://www.mit.edu/admissions"
+    },
+    {
+        "name": "Stanford University",
+        "url": "https://www.stanford.edu/admissions"
+    },
+    {
+        "name": "Princeton University",
+        "url": "https://www.princeton.edu/admissions"
+    },
+    {
+        "name": "UC Berkeley",
+        "url": "https://www.berkeley.edu/admissions"
+    },
+    {
+        "name": "Yale University",
+        "url": "https://www.yale.edu/admissions"
+    }
+]
