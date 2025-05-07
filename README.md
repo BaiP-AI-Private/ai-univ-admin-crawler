@@ -109,8 +109,28 @@ For containerized deployments:
    kubectl apply -f k8s/service.yaml
    ```
 
+## Scaling with Helm
+For easier deployments, use **Helm charts**:
+
+### Install Helm
+```bash
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+```
+
+### Deploy using Helm
+```bash
+helm install deepseek-crawler ./k8s/helm-chart/
+```
+
+### Verify Pods
+```bash
+kubectl get pods
+```
+
 ## Continuous Integration / Deployment
 Set up GitHub Actions (see `.github/workflows/ci_cd.yml`) for running tests, building Docker images, and deploying to Kubernetes.
+
+---
 
 ## License
 MIT License
