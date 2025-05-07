@@ -1,4 +1,4 @@
-# Deep Seek Crawler
+# DeepSeek University Admissions Crawler
 
 This project is a web crawler built with Python that scrapes university admissions websites. The scraper extracts key information—including the courses offered, admissions requirements, and the application deadline—which will be used in our AI-assisted webapp to match students’ academic results and achievements during high school.
 
