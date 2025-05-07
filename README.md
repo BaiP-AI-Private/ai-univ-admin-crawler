@@ -130,8 +130,8 @@ For containerized deployments:
    ```
 2. **Push the image to Docker Hub:**
    ```bash
-   docker tag ai-univ-admin-crawler zakialam/ai-univ-admin-crawler:latest
-   docker push zakialam/ai-univ-admin-crawler:latest
+   docker tag ai-univ-admin-crawler baipai/ai-univ-admin-crawler:latest
+   docker push baipai/ai-univ-admin-crawler:latest
    ```
 3. **Deploy to Kubernetes:**
    ```bash
