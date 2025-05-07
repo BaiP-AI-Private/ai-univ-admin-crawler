@@ -9,6 +9,8 @@ This project is a web crawler built with Python that scrapes university admissio
 - **Configurable Global Parameters:** Manage settings like timeouts, HTTP headers, and file paths via `config.py`.
 - **Containerization & Deployment:** Build Docker images and deploy via Kubernetes.
 
+---
+
 ## Project Structure
 ```
 .
@@ -34,6 +36,8 @@ This project is a web crawler built with Python that scrapes university admissio
 └── README.md               # This file (Deployment instructions)
 ```
 
+---
+
 ## Installation
 1. **Clone the Repository:**
    ```bash
@@ -58,6 +62,8 @@ This project is a web crawler built with Python that scrapes university admissio
    GROQ_API_KEY=your_groq_api_key_here
    ```
 
+---
+
 ## Usage
 ### Running the Web Scraper
 Execute the scraper to extract courses, admissions requirements, and application deadlines:
@@ -73,6 +79,8 @@ uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 This starts the API server with endpoints available for data retrieval.
 
+---
+
 ## Hosting the Web Application
 ### GitHub Pages
 GitHub Pages is ideal for static front-end hosting:
@@ -86,11 +94,15 @@ For dynamic front-ends or if you require serverless functions:
 2. Configure the project (set the appropriate build command and output directory).
 3. Deploy your project on Vercel, which also supports API routes if needed.
 
+---
+
 ## Logging and Troubleshooting
 The application uses Python’s logging module. Check the console or log files for:
 - Successful HTTP requests and data extraction
 - Error messages from failed requests or file operations
 - Debug information to assist any AI agent reviewing the logs
+
+---
 
 ## Deployment with Kubernetes
 For containerized deployments:
@@ -109,6 +121,8 @@ For containerized deployments:
    kubectl apply -f k8s/service.yaml
    ```
 
+---
+
 ## Scaling with Helm
 For easier deployments, use **Helm charts**:
 
@@ -126,6 +140,8 @@ helm install deepseek-crawler ./k8s/helm-chart/
 ```bash
 kubectl get pods
 ```
+
+---
 
 ## Continuous Integration / Deployment
 Set up GitHub Actions (see `.github/workflows/ci_cd.yml`) for running tests, building Docker images, and deploying to Kubernetes.
