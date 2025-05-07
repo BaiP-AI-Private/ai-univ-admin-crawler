@@ -45,20 +45,38 @@ This project is a web crawler built with Python that scrapes university admissio
    cd ai-univ-admin-crawler
    ```
 
-2. **Create and Activate a Virtual Environment:**
+2. **Ensure Python 3.12 is Installed**
+   Before proceeding, verify your Python version:
+   ```bash
+   python --version
+   ```
+   If it's not Python 3.12, install it from [python.org](https://www.python.org/downloads/).
+
+3. **Create and Activate a Virtual Environment:**
+
+   You can use either **Conda** or **venv** to set up the environment.
+
+   _Option 1: Using Conda_
+   ```bash
+   conda create -n deep-seek-crawler python=3.12 -y
+   conda activate deep-seek-crawler  # On Windows: activate deep-seek-crawler
+   ```
+
+   _Option 2: Using Virtualenv (venv)_
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. **Install Dependencies:**
+4. **Upgrade Pip and Install Dependencies:**
    ```bash
+   python -m pip install --upgrade pip
    pip install -r requirements.txt
    ```
 
-4. **Set Up Environment Variables:**
+5. **Set Up Environment Variables:**
    Create a `.env` file in the root directory with your API keys as needed.
-   ```
+   ```bash
    GROQ_API_KEY=your_groq_api_key_here
    ```
 
