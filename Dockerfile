@@ -10,8 +10,5 @@ COPY . .
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port 8000 for FastAPI
-EXPOSE 8000
-
-# Set the default command to start the FastAPI API
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Set the default command to run the main script
+CMD ["python", "main.py"]
