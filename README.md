@@ -54,16 +54,19 @@ This project is a web crawler built with Python that scrapes university admissio
 
 4. **Set Up Environment Variables:**
    Create a `.env` file in the root directory with your API keys as needed.
+   ```
+   GROQ_API_KEY=your_groq_api_key_here
+   ```
 
 ## Usage
-### Running the Scraper
+### Running the Web Scraper
 Execute the scraper to extract courses, admissions requirements, and application deadlines:
 ```bash
 python main.py
 ```
 The structured data will be saved to the file defined in `config.OUTPUT_FILE`.
 
-### Setting Up the API
+### Running the AI-Powered Prediction API
 If you want to serve scraped data or run real-time predictions, start the FastAPI API:
 ```bash
 uvicorn api:app --host 0.0.0.0 --port 8000
@@ -93,12 +96,12 @@ The application uses Python’s logging module. Check the console or log files f
 For containerized deployments:
 1. **Build the Docker image:**
    ```bash
-   docker build -t deepseek-crawler .
+   docker build -t ai-univ-admin-crawler .
    ```
 2. **Push the image to Docker Hub:**
    ```bash
-   docker tag deepseek-crawler your-docker-username/deepseek-crawler:latest
-   docker push your-docker-username/deepseek-crawler:latest
+   docker tag ai-univ-admin-crawler zakialam/ai-univ-admin-crawler:latest
+   docker push zakialam/ai-univ-admin-crawler:latest
    ```
 3. **Deploy to Kubernetes:**
    ```bash
