@@ -3,7 +3,7 @@ name: Build & Push Docker Image to Docker Hub
 on:
   push:
     branches:
-      - main  # Runs workflow only when pushing to the main branch
+      - push-docker-build
   workflow_dispatch:  # Allows manual execution
 
 jobs:

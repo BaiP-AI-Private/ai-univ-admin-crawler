@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>University Admissions Scraper Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            transition: transform 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .stats-card {
+            height: 100%;
+            border-left: 5px solid #0d6efd;
+        }
+        .progress {
+            height: 10px;
+            border-radius: 5px;
+        }
+        .university-card {
+            border-left: 5px solid #20c997;
+        }
+        .university-card h5 {
+            color: #0d6efd;
+            font-weight: 600;
+        }
+        .issue-badge {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .heading-with-line {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .heading-with-line h2 {
+            margin-right: 1rem;
+            white-space: nowrap;
+            font-weight: 700;
+            color: #212529;
+        }
+        .heading-line {
+            flex-grow: 1;
+            height: 1px;
+            background-color: #dee2e6;
+        }
+        #last-update {
+            font-style: italic;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">University Admissions Scraper</h1>
+            <div>
+                <span id="last-update">Last updated: Loading...</span>
+                <button id="refresh-btn" class="btn btn-primary ms-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                    </svg>
+                    Refresh Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Summary Statistics -->
+        <div class="heading-with-line">
+            <h2>Summary Statistics</h2>
+            <span class="heading-line"></span>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Universities</h5>
+                        <h2 id="total-universities" class="display-4 fw-bold text-primary">0</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Complete Data</h5>
+                        <h2 id="complete-data" class="display-4 fw-bold text-success">0</h2>
+                        <div class="progress mt-2">
+                            <div id="complete-data-progress" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Completion Rates</h5>
+                        <canvas id="completion-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualizations -->
+        <div class="heading-with-line">
+            <h2>Data Analysis</h2>
+            <span class="heading-line"></span>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Data Quality Metrics</h5>
+                        <canvas id="quality-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Success Rate by Category</h5>
+                        <canvas id="category-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Universities with Issues -->
+        <div class="heading-with-line">
+            <h2>Universities with Issues</h2>
+            <span class="heading-line"></span>
+        </div>
+        
+        <div id="universities-issues-container" class="row">
+            <!-- University cards will be dynamically added here -->
+            <div class="text-center text-muted py-5 w-100">
+                <p>Loading university data...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Chart instances
+        let completionChart, qualityChart, categoryChart;
+        
+        // Function to load data
+        async function loadData() {
+            try {
+                const response = await fetch('data/admissions_data.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                // Update last refresh time
+                document.getElementById('last-update').textContent = `Last updated: ${new Date().toLocaleString()}`;
+                
+                // Process and visualize the data
+                processData(data);
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('universities-issues-container').innerHTML = `
+                    <div class="alert alert-danger w-100" role="alert">
+                        Error loading data: ${error.message}. Make sure the scraper has been run and data exists.
+                    </div>
+                `;
+            }
+        }
+        
+        // Function to process the data and update the UI
+        function processData(data) {
+            // Extract key metrics
+            const totalUniversities = data.length;
+            
+            // Count data completion
+            const coursesFound = data.filter(uni => uni.courses && uni.courses[0] !== "Not found").length;
+            const requirementsFound = data.filter(uni => uni.admissions_requirements && uni.admissions_requirements[0] !== "Not found").length;
+            const deadlinesFound = data.filter(uni => uni.application_deadlines && uni.application_deadlines[0] !== "Not found").length;
+            
+            const completeData = data.filter(uni => 
+                uni.courses && uni.courses[0] !== "Not found" && 
+                uni.admissions_requirements && uni.admissions_requirements[0] !== "Not found" && 
+                uni.application_deadlines && uni.application_deadlines[0] !== "Not found"
+            ).length;
+            
+            const completePercentage = totalUniversities > 0 ? (completeData / totalUniversities) * 100 : 0;
+            
+            // Update summary stats
+            document.getElementById('total-universities').textContent = totalUniversities;
+            document.getElementById('complete-data').textContent = completeData;
+            document.getElementById('complete-data-progress').style.width = `${completePercentage}%`;
+            
+            // Calculate data quality metrics
+            const courseLengths = data.flatMap(uni => uni.courses && uni.courses[0] !== "Not found" ? 
+                uni.courses.map(c => typeof c === 'string' ? c.length : 0) : []);
+            const reqLengths = data.flatMap(uni => uni.admissions_requirements && uni.admissions_requirements[0] !== "Not found" ? 
+                uni.admissions_requirements.map(r => typeof r === 'string' ? r.length : 0) : []);
+            const deadlineLengths = data.flatMap(uni => uni.application_deadlines && uni.application_deadlines[0] !== "Not found" ? 
+                uni.application_deadlines.map(d => typeof d === 'string' ? d.length : 0) : []);
+            
+            const avgCourseLength = courseLengths.length > 0 ? 
+                courseLengths.reduce((sum, len) => sum + len, 0) / courseLengths.length : 0;
+            const avgReqLength = reqLengths.length > 0 ? 
+                reqLengths.reduce((sum, len) => sum + len, 0) / reqLengths.length : 0;
+            const avgDeadlineLength = deadlineLengths.length > 0 ? 
+                deadlineLengths.reduce((sum, len) => sum + len, 0) / deadlineLengths.length : 0;
+            
+            // Find universities with issues
+            const universitiesWithIssues = data.filter(uni => {
+                const missingCourses = !uni.courses || uni.courses[0] === "Not found";
+                const missingReq = !uni.admissions_requirements || uni.admissions_requirements[0] === "Not found";
+                const missingDeadlines = !uni.application_deadlines || uni.application_deadlines[0] === "Not found";
+                
+                return missingCourses || missingReq || missingDeadlines;
+            });
+            
+            // Update charts
+            updateCompletionChart(coursesFound, requirementsFound, deadlinesFound, totalUniversities);
+            updateQualityChart(avgCourseLength, avgReqLength, avgDeadlineLength);
+            updateCategoryChart(coursesFound, requirementsFound, deadlinesFound, totalUniversities);
+            
+            // Update universities with issues
+            updateUniversitiesWithIssues(universitiesWithIssues);
+        }
+        
+        // Update completion chart
+        function updateCompletionChart(courses, requirements, deadlines, total) {
+            const ctx = document.getElementById('completion-chart').getContext('2d');
+            
+            // Destroy previous chart if it exists
+            if (completionChart) {
+                completionChart.destroy();
+            }
+            
+            // Create new chart
+            completionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Courses', 'Requirements', 'Deadlines'],
+                    datasets: [{
+                        label: 'Completion Rate (%)',
+                        data: [
+                            (courses / total) * 100,
+                            (requirements / total) * 100,
+                            (deadlines / total) * 100
+                        ],
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 159, 64, 0.7)',
+                            'rgba(75, 192, 192, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgb(54, 162, 235)',
+                            'rgb(255, 159, 64)',
+                            'rgb(75, 192, 192)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update quality metrics chart
+        function updateQualityChart(avgCourseLength, avgReqLength, avgDeadlineLength) {
+            const ctx = document.getElementById('quality-chart').getContext('2d');
+            
+            // Destroy previous chart if it exists
+            if (qualityChart) {
+                qualityChart.destroy();
+            }
+            
+            // Create new chart
+            qualityChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Courses Detail', 'Requirements Detail', 'Deadlines Detail'],
+                    datasets: [{
+                        label: 'Average Content Length (chars)',
+                        data: [avgCourseLength, avgReqLength, avgDeadlineLength],
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgb(54, 162, 235)',
+                        pointBackgroundColor: 'rgb(54, 162, 235)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(54, 162, 235)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        r: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update category success chart
+        function updateCategoryChart(courses, requirements, deadlines, total) {
+            const ctx = document.getElementById('category-chart').getContext('2d');
+            
+            // Destroy previous chart if it exists
+            if (categoryChart) {
+                categoryChart.destroy();
+            }
+            
+            // Create new chart
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Complete Data', 'Missing Some Data', 'Missing All Data'],
+                    datasets: [{
+                        data: [
+                            // Count universities with all data
+                            Math.min(courses, requirements, deadlines),
+                            // Count universities with some data
+                            total - Math.min(courses, requirements, deadlines) - (total - Math.max(courses, requirements, deadlines)),
+                            // Count universities with no data
+                            total - Math.max(courses, requirements, deadlines)
+                        ],
+                        backgroundColor: [
+                            'rgba(40, 167, 69, 0.7)',
+                            'rgba(255, 193, 7, 0.7)',
+                            'rgba(220, 53, 69, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgb(40, 167, 69)',
+                            'rgb(255, 193, 7)',
+                            'rgb(220, 53, 69)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${context.label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update universities with issues section
+        function updateUniversitiesWithIssues(universities) {
+            const container = document.getElementById('universities-issues-container');
+            
+            if (universities.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-success" role="alert">
+                            <h4 class="alert-heading">Great job!</h4>
+                            <p>All universities have complete data. No issues found.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Clear container
+            container.innerHTML = '';
+            
+            // Add university cards
+            universities.forEach(uni => {
+                const missingCourses = !uni.courses || uni.courses[0] === "Not found";
+                const missingReq = !uni.admissions_requirements || uni.admissions_requirements[0] === "Not found";
+                const missingDeadlines = !uni.application_deadlines || uni.application_deadlines[0] === "Not found";
+                
+                const issueCount = [missingCourses, missingReq, missingDeadlines].filter(Boolean).length;
+                const severity = issueCount === 3 ? 'danger' : (issueCount === 2 ? 'warning' : 'info');
+                
+                const card = document.createElement('div');
+                card.className = 'col-md-6 col-lg-4';
+                card.innerHTML = `
+                    <div class="card university-card mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">${uni.name}</h5>
+                            <p class="card-text small text-truncate">
+                                <a href="${uni.url}" target="_blank">${uni.url}</a>
+                            </p>
+                            <div class="d-flex flex-wrap mb-2">
+                                ${missingCourses ? '<span class="badge bg-danger issue-badge">Missing Courses</span>' : ''}
+                                ${missingReq ? '<span class="badge bg-danger issue-badge">Missing Requirements</span>' : ''}
+                                ${missingDeadlines ? '<span class="badge bg-danger issue-badge">Missing Deadlines</span>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+        
+        // Event listener for refresh button
+        document.getElementById('refresh-btn').addEventListener('click', loadData);
+        
+        // Initial data load
+        document.addEventListener('DOMContentLoaded', loadData);
