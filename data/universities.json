@@ -1,26 +1,34 @@
 [
     {
         "name": "Harvard University",
-        "url": "https://www.harvard.edu/admissions"
+        "url": "https://college.harvard.edu/admissions"
     },
     {
         "name": "MIT",
-        "url": "https://www.mit.edu/admissions"
+        "url": "https://www.admissions.mit.edu"
     },
     {
         "name": "Stanford University",
-        "url": "https://www.stanford.edu/admissions"
+        "url": "https://admission.stanford.edu/apply"
     },
     {
         "name": "Princeton University",
-        "url": "https://www.princeton.edu/admissions"
+        "url": "https://admission.princeton.edu"
     },
     {
         "name": "UC Berkeley",
-        "url": "https://www.berkeley.edu/admissions"
+        "url": "https://admissions.berkeley.edu"
     },
     {
         "name": "Yale University",
-        "url": "https://www.yale.edu/admissions"
+        "url": "https://admissions.yale.edu"
+    },
+    {
+        "name": "University of Michigan",
+        "url": "https://admissions.umich.edu"
+    },
+    {
+        "name": "Cornell University",
+        "url": "https://admissions.cornell.edu"
     }
 ]
