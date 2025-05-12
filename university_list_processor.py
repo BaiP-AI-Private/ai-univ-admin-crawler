@@ -78,8 +78,8 @@ KNOWN_UNIVERSITIES = {
     # US Universities
     "harvard": "college.harvard.edu/admissions",
     "harvard university": "college.harvard.edu/admissions",
-    "mit": "www.admissions.mit.edu",
-    "massachusetts institute of technology": "www.admissions.mit.edu",
+    "mit": "www.mitadmissions.org",
+    "massachusetts institute of technology": "www.mitadmissions.org",
     "stanford": "admission.stanford.edu/apply",
     "stanford university": "admission.stanford.edu/apply",
     "princeton": "admission.princeton.edu",
