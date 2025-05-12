@@ -160,10 +160,11 @@ jobs:
           # Verify the installation worked
           python -c "import crawl4ai, pydantic, fastapi; print('Pydantic version:', pydantic.__version__); print('FastAPI version:', fastapi.__version__); print('Dependencies verified successfully')"
           
-      # Run Crawl4AI setup
-      - name: Run Crawl4AI setup
+      # Run Crawl4AI setup using direct Playwright installation
+      - name: Install Playwright browsers
         run: |
-          python -m crawl4ai.cli.setup
+          python -m playwright install chromium
+          python -m playwright install-deps chromium
           
       # Extract config values
       - name: Extract config values
