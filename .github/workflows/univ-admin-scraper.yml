@@ -4,7 +4,7 @@ on:
   # Run on schedule (once a week on Monday at 2 AM UTC)
   schedule:
     - cron: '0 2 * * 1'
-  
+
   # Allow manual trigger from GitHub UI
   workflow_dispatch:
     inputs:
@@ -164,17 +164,22 @@ jobs:
             
             echo -e "\n\nScraping Statistics:"
             python -c """
-import json
-data = json.load(open('$OUTPUT_FILE'))
-total = len(data)
-courses_found = sum(1 for uni in data if uni.get('courses') and uni['courses'][0] != 'Not found')
-req_found = sum(1 for uni in data if uni.get('admissions_requirements') and uni['admissions_requirements'][0] != 'Not found')
-deadlines_found = sum(1 for uni in data if uni.get('application_deadlines') and uni['application_deadlines'][0] != 'Not found')
-print(f'Total universities: {total}')
-print(f'Universities with course info: {courses_found} ({courses_found/total*100:.1f}%)')
-print(f'Universities with requirements info: {req_found} ({req_found/total*100:.1f}%)')
-print(f'Universities with deadline info: {deadlines_found} ({deadlines_found/total*100:.1f}%)')
-"""
+            import json
+            data = json.load(open('$OUTPUT_FILE'))
+            total = len(data)
+            courses_found = sum(1 for uni in data if uni.get('courses') and uni['courses'][0] != 'Not found')
+            req_found = sum(1 for uni in data if uni.get('admissions_requirements') and uni['admissions_requirements'][0] != 'Not found')
+            deadlines_found = sum(1 for uni in data if uni.get('application_deadlines') and uni['application_deadlines'][0] != 'Not found')
+            print(f'Total universities: {total}')
+            print(f'Universities with course info: {courses_found} ({courses_found/total*100:.1f}%)')
+            print(f'Universities with requirements info: {req_found} ({req_found/total*100:.1f}%)')
+            print(f'Universities with deadline info: {deadlines_found} ({deadlines_found/total*100:.1f}%)')
+            """
+            echo "Scraping completed successfully."
+          else
+            echo "Error: No scraping results found in $OUTPUT_FILE"
+            exit 1
+          fi
           else
             echo "Error: No scraping results found in $OUTPUT_FILE"
             exit 1
