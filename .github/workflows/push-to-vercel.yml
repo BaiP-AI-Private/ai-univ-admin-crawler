@@ -3,8 +3,7 @@ name: Deploy Dashboard to Vercel
 on:
   push:
     branches:
-      - main
-      - master
+      - Push-to-vercel
   workflow_dispatch:
   # Run after the scraper workflow completes
   workflow_run:
