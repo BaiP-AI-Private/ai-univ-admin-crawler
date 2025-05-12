@@ -60,14 +60,13 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
     css_extractor = JsonCssExtractionStrategy(css_schema)
     
     # First try with CSS extractor which is more reliable in CI environments
-    # Fixed: Use CacheMode.BYPASS instead of PREFER_CACHE which doesn't exist in Crawl4AI 0.6.3
+    # Fixed: Use correct parameters for Crawl4AI 0.6.3
     run_config_css = CrawlerRunConfig(
         extraction_strategy=css_extractor,
         content_filter=PruningContentFilter(),
         session_id=f"university-{name}-css",
         cache_mode=CacheMode.BYPASS,  # Use BYPASS instead of PREFER_CACHE
-        wait_for_selector="body",
-        follow_redirects=True,
+        wait_for="css:body",  # Use "css:" prefix instead of wait_for_selector
         page_timeout=config.DEFAULT_TIMEOUT * 1000  # Convert to milliseconds
     )
     
@@ -97,9 +96,16 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
         # If we got some markdown content but no structured data, we could use that as fallback
         if all(data[key] == ["Not found"] for key in ["courses", "admissions_requirements", "application_deadlines"]):
             logging.warning(f"No structured data found for {name}, using markdown fallback")
-            if result.markdown:
-                # Very simple keyword-based extraction from markdown as last resort
-                markdown_lines = result.markdown.split('\n')
+            if hasattr(result, 'markdown') and result.markdown:
+                # Check if markdown is a string or an object with appropriate attributes
+                markdown_text = result.markdown
+                if hasattr(result.markdown, 'raw_markdown'):
+                    markdown_text = result.markdown.raw_markdown
+                elif hasattr(result.markdown, 'fit_markdown') and result.markdown.fit_markdown:
+                    markdown_text = result.markdown.fit_markdown
+                
+                # Simple keyword-based extraction from markdown as last resort
+                markdown_lines = markdown_text.split('\n')
                 
                 # Simple keyword matching
                 course_lines = [line.strip() for line in markdown_lines if any(kw in line.lower() for kw in 
@@ -135,23 +141,22 @@ async def process_universities(universities: List[Dict[str, str]]) -> List[Dict[
     """Process multiple universities with rate limiting and concurrency control."""
     results = []
     
-    # Configure the browser
+    # Configure the browser with correct parameters for v0.6.3
     browser_config = BrowserConfig(
         headless=True,  # Run in headless mode
         ignore_https_errors=True,  # Ignore HTTPS errors
-        # Removed timeout parameter which doesn't exist in BrowserConfig
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+        verbose=True  # Enable verbose logging for debugging
     )
     
     # Create connection pool settings based on the number of universities
     # Adjust max_concurrent_tasks based on your system's capabilities
-    max_tasks = min(2, len(universities))  # Very conservative setting for CI environment
+    max_tasks = min(1, len(universities))  # Ultra conservative for CI environment, just one at a time
     
     # Initialize the AsyncWebCrawler with the browser configuration
     async with AsyncWebCrawler(
         config=browser_config,
-        verbose=True,
-        max_concurrent_tasks=max_tasks
+        max_concurrent_tasks=max_tasks  # This is correct in Crawl4AI 0.6.3
     ) as crawler:
         # Process universities in batches to control concurrency
         for i in range(0, len(universities), max_tasks):
@@ -201,7 +206,7 @@ async def main():
     
     # Use a smaller sample for CI to make sure it completes faster
     if os.environ.get('CI'):
-        max_unis = min(2, len(valid_universities))
+        max_unis = min(1, len(valid_universities))  # Just one university in CI for faster completion
         logging.info(f"CI environment detected, limiting to {max_unis} universities")
         valid_universities = valid_universities[:max_unis]
     
