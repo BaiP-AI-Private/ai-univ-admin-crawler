@@ -4,6 +4,7 @@ import asyncio
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
+from datetime import datetime
 
 import config
 from main import load_university_urls, process_universities
@@ -82,9 +83,6 @@ async def get_crawl_results(job_id: str):
 
 async def run_crawl_job(job_id: str):
     """Run the crawling job and update status"""
-    import time
-    from datetime import datetime
-    
     # Update job status
     active_jobs[job_id]["status"] = "loading_universities"
     active_jobs[job_id]["last_updated"] = datetime.now().isoformat()
