@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
-from crawl4ai.extraction_strategy import LLMExtractionStrategy
+from crawl4ai.extraction_strategy import LLMExtractionStrategy, JsonCssExtractionStrategy
 from crawl4ai.content_filter_strategy import PruningContentFilter
 import config
 
@@ -41,74 +41,122 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
     
     logging.info(f"Processing {name} at {url}")
     
-    # Configure the extraction strategy using LLM
-    extraction_instruction = """
-    From the university webpage, please extract:
-    1. Courses or programs offered by the university
-    2. Admissions requirements
-    3. Application deadlines
+    # Configure the extraction strategy using CSS as fallback if LLM is not available
+    css_schema = {
+        "courses": {
+            "selector": "div.programs, ul.course-list, .majors, .degrees, .academics",
+            "type": "list"
+        },
+        "admissions_requirements": {
+            "selector": "div.requirements, .admission, .eligibility, ul.requirements",
+            "type": "list"
+        },
+        "application_deadlines": {
+            "selector": "div.deadlines, .dates, table.deadlines, .calendar",
+            "type": "list"
+        }
+    }
     
-    For each category, provide a list of relevant information found on the page.
-    If specific information isn't found, return an empty list for that category.
-    """
+    css_extractor = JsonCssExtractionStrategy(css_schema)
     
-    extractor = LLMExtractionStrategy(
-        schema=UniversityData,
-        instruction=extraction_instruction,
-        provider="ollama/llama3",  # Can be changed to other providers as needed
-        # If using OpenAI: provider="openai/gpt-4", api_token="your_token"
-    )
-    
-    # Configure the crawler run
-    run_config = CrawlerRunConfig(
-        extraction_strategy=extractor,
+    # First try with CSS extractor which is more reliable in CI environments
+    run_config_css = CrawlerRunConfig(
+        extraction_strategy=css_extractor,
         content_filter=PruningContentFilter(),
-        session_id=f"university-{name}",
+        session_id=f"university-{name}-css",
         cache_mode=CacheMode.PREFER_CACHE,
-        wait_for_selector="body",  # Wait for the page to load
+        wait_for_selector="body",
         follow_redirects=True
     )
     
     try:
-        # Run the crawler
-        result = await crawler.arun(url=url, config=run_config)
+        # Try CSS extraction first (more reliable in CI environments)
+        logging.info(f"Attempting CSS-based extraction for {name}")
+        result = await crawler.arun(url=url, config=run_config_css)
         
-        # Check if extraction succeeded
+        # Check if extraction succeeded with CSS
         if result.extracted_content and isinstance(result.extracted_content, dict):
-            # Process the extracted data
             extracted = result.extracted_content
-            
-            # Format the data with cleaner structure
-            data = {
-                "name": name,
-                "url": url,
-                "courses": extracted.get("courses", ["Not found"]),
-                "admissions_requirements": extracted.get("admissions_requirements", ["Not found"]),
-                "application_deadlines": extracted.get("application_deadlines", ["Not found"]),
-                "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")
-            }
-            
-            # If the extraction didn't find anything, but we have Markdown
-            # we could use the raw Markdown as a fallback
-            for key in ["courses", "admissions_requirements", "application_deadlines"]:
-                if not data[key] or data[key] == ["Not found"]:
-                    logging.warning(f"No {key} found for {name} using LLM extraction, trying fallback")
-                    
-                    # You might want to implement a fallback strategy here
-                    # For example, parse the markdown with specific keywords
-            
-            logging.info(f"Successfully extracted data for {name}")
-            return data
+            logging.info(f"CSS extraction successful for {name}")
         else:
-            logging.error(f"Extraction failed for {name}")
-            return {
-                "name": name,
-                "url": url,
-                "courses": ["Not found"],
-                "admissions_requirements": ["Not found"],
-                "application_deadlines": ["Not found"],
-                "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")
-            }
+            # If CSS extraction fails, try LLM extraction if we're not in CI (GitHub Actions)
+            if not os.environ.get('CI'):
+                logging.info(f"CSS extraction failed for {name}, trying LLM extraction")
+                
+                # Configure LLM extraction
+                extraction_instruction = """
+                From the university webpage, please extract:
+                1. Courses or programs offered by the university
+                2. Admissions requirements
+                3. Application deadlines
+                
+                For each category, provide a list of relevant information found on the page.
+                If specific information isn't found, return an empty list for that category.
+                """
+                
+                try:
+                    llm_extractor = LLMExtractionStrategy(
+                        schema=UniversityData,
+                        instruction=extraction_instruction,
+                        provider="ollama/llama3",  # Can be changed to other providers as needed
+                        # If using OpenAI: provider="openai/gpt-4", api_token="your_token"
+                    )
+                    
+                    # Configure the LLM crawler run
+                    run_config_llm = CrawlerRunConfig(
+                        extraction_strategy=llm_extractor,
+                        content_filter=PruningContentFilter(),
+                        session_id=f"university-{name}-llm",
+                        cache_mode=CacheMode.PREFER_CACHE,
+                        wait_for_selector="body",
+                        follow_redirects=True
+                    )
+                    
+                    result = await crawler.arun(url=url, config=run_config_llm)
+                    extracted = result.extracted_content if result.extracted_content else {}
+                    logging.info(f"LLM extraction completed for {name}")
+                except Exception as e:
+                    logging.error(f"LLM extraction failed for {name}: {e}")
+                    extracted = {}
+            else:
+                logging.warning(f"CSS extraction failed for {name} and LLM extraction skipped in CI environment")
+                extracted = {}
+        
+        # Format the data with cleaner structure
+        data = {
+            "name": name,
+            "url": url,
+            "courses": extracted.get("courses", ["Not found"]),
+            "admissions_requirements": extracted.get("admissions_requirements", ["Not found"]),
+            "application_deadlines": extracted.get("application_deadlines", ["Not found"]),
+            "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        # If we got some markdown content but no structured data, we could use that as fallback
+        if all(data[key] == ["Not found"] for key in ["courses", "admissions_requirements", "application_deadlines"]):
+            logging.warning(f"No structured data found for {name}, using markdown fallback")
+            if result.markdown:
+                # Very simple keyword-based extraction from markdown as last resort
+                markdown_lines = result.markdown.split('\n')
+                
+                # Simple keyword matching
+                course_lines = [line.strip() for line in markdown_lines if any(kw in line.lower() for kw in 
+                                ['degree', 'course', 'program', 'major', 'bachelor', 'master', 'phd'])]
+                if course_lines:
+                    data["courses"] = course_lines[:5]  # Limit to first 5 matches
+                
+                req_lines = [line.strip() for line in markdown_lines if any(kw in line.lower() for kw in 
+                             ['requirement', 'admission', 'prerequisite', 'qualify', 'eligibility', 'gpa', 'test score'])]
+                if req_lines:
+                    data["admissions_requirements"] = req_lines[:5]
+                
+                deadline_lines = [line.strip() for line in markdown_lines if any(kw in line.lower() for kw in 
+                                  ['deadline', 'date', 'application period', 'apply by', 'due by', 'submit by'])]
+                if deadline_lines:
+                    data["application_deadlines"] = deadline_lines[:5]
+        
+        logging.info(f"Successfully extracted data for {name}")
+        return data
     except Exception as e:
         logging.error(f"Error extracting data for {name}: {e}")
         return {
@@ -135,7 +183,7 @@ async def process_universities(universities: List[Dict[str, str]]) -> List[Dict[
     
     # Create connection pool settings based on the number of universities
     # Adjust max_concurrent_tasks based on your system's capabilities
-    max_tasks = min(5, len(universities))  # Start conservative, can be increased
+    max_tasks = min(3, len(universities))  # Conservative setting for CI environment
     
     # Initialize the AsyncWebCrawler with the browser configuration
     async with AsyncWebCrawler(
