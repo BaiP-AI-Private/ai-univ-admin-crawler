@@ -80,6 +80,14 @@ jobs:
         run: |
           echo "Generated universities.json:"
           cat "${{ steps.config.outputs.input_file }}"
+          
+      # Upload the generated universities.json as an artifact to share between jobs
+      - name: Upload universities.json
+        uses: actions/upload-artifact@v4
+        with:
+          name: universities-json
+          path: ${{ steps.config.outputs.input_file }}
+          retention-days: 1
 
   scrape-universities:
     name: Scrape University Admissions Pages
@@ -96,6 +104,13 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
           
+      # Download the universities.json file generated in the previous job
+      - name: Download universities.json
+        uses: actions/download-artifact@v4
+        with:
+          name: universities-json
+          path: data
+                    
       - name: Install minimal dependencies
         run: |
           python -m pip install --upgrade pip wheel setuptools
@@ -114,6 +129,16 @@ jobs:
           echo "input_file=$INPUT_FILE" >> $GITHUB_OUTPUT
           echo "output_file=$OUTPUT_FILE" >> $GITHUB_OUTPUT
           
+      - name: Verify universities.json exists
+        run: |
+          if [ ! -f "${{ steps.config.outputs.input_file }}" ]; then
+            echo "ERROR: universities.json file not found at ${{ steps.config.outputs.input_file }}"
+            exit 1
+          else
+            echo "Found universities.json:"
+            ls -la data/
+          fi
+          
       - name: Run scraper
         run: |
           # Create data directory if it doesn't exist
@@ -123,11 +148,16 @@ jobs:
           python main.py
           
       - name: Check and display scraping results
+        id: summary
         run: |
           OUTPUT_FILE="${{ steps.config.outputs.output_file }}"
           if [ -f "$OUTPUT_FILE" ]; then
             echo "Scraping results:"
             cat "$OUTPUT_FILE"
+            
+            # Get university count
+            UNI_COUNT=$(python -c "import json; print(len(json.load(open('$OUTPUT_FILE'))))")
+            echo "count=$UNI_COUNT" >> $GITHUB_OUTPUT
             
             echo -e "\n\nUniversities successfully scraped:"
             python -c "import json; data = json.load(open('$OUTPUT_FILE')); print('\n'.join([f\"- {uni['name']}\" for uni in data]))"
@@ -149,6 +179,14 @@ print(f'Universities with deadline info: {deadlines_found} ({deadlines_found/tot
             echo "Error: No scraping results found in $OUTPUT_FILE"
             exit 1
           fi
+          
+      # Upload the scraping results as an artifact
+      - name: Upload admissions data
+        uses: actions/upload-artifact@v4
+        with:
+          name: admissions-data
+          path: ${{ steps.config.outputs.output_file }}
+          retention-days: 7
 
       # Optional: Add email notification
       # - name: Send email notification
