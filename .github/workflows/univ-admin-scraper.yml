@@ -111,16 +111,15 @@ jobs:
           name: universities-json
           path: data
                     
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip wheel setuptools
-          
-          # Install all the required dependencies
           pip install -r requirements.txt
           
-          # Install Playwright dependencies
-          apt-get update
-          apt-get install -y --no-install-recommends \
+      - name: Install Playwright dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
             libglib2.0-0 \
             libnss3 \
             libnspr4 \
@@ -143,8 +142,10 @@ jobs:
             libasound2 \
             libatspi2.0-0
             
+      - name: Run Crawl4AI setup
+        run: |
           # Run Crawl4AI setup to install browser binaries
-          crawl4ai-setup
+          python -m crawl4ai.cli.setup
           
       - name: Verify dependencies
         run: |
@@ -174,8 +175,8 @@ jobs:
           # Create data directory if it doesn't exist
           mkdir -p data
           
-          # Run the scraper
-          python main.py
+          # Run the scraper with debug output
+          python -u main.py
           
       - name: Check and display scraping results
         id: summary
