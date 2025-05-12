@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
 from crawl4ai.extraction_strategy import JsonCssExtractionStrategy
+# Note: We'll use markdown generation strategy to handle content filtering properly
+from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 from crawl4ai.content_filter_strategy import PruningContentFilter
 import config
 
@@ -59,11 +61,17 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
     
     css_extractor = JsonCssExtractionStrategy(css_schema)
     
-    # First try with CSS extractor which is more reliable in CI environments
+    # Create markdown generator with content filter
+    # In Crawl4AI 0.6.3, we need to use markdown_generator instead of content_filter directly
+    md_generator = DefaultMarkdownGenerator(
+        content_filter=PruningContentFilter()
+    )
+    
     # Fixed: Use correct parameters for Crawl4AI 0.6.3
+    # Removed content_filter as it's not a valid parameter
     run_config_css = CrawlerRunConfig(
         extraction_strategy=css_extractor,
-        content_filter=PruningContentFilter(),
+        markdown_generator=md_generator,  # Use markdown generator with filter
         session_id=f"university-{name}-css",
         cache_mode=CacheMode.BYPASS,  # Use BYPASS instead of PREFER_CACHE
         wait_for="css:body",  # Use "css:" prefix instead of wait_for_selector
