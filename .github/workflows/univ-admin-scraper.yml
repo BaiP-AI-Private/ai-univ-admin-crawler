@@ -48,7 +48,9 @@ jobs:
         run: |
           # Use Python to extract values from config.py
           UNIVERSITIES_LIST_FILE=$(python -c "import config; print(config.UNIVERSITIES_LIST_FILE)")
+          INPUT_FILE=$(python -c "import config; print(config.INPUT_FILE)")
           echo "universities_list_file=$UNIVERSITIES_LIST_FILE" >> $GITHUB_OUTPUT
+          echo "input_file=$INPUT_FILE" >> $GITHUB_OUTPUT
           
       - name: Check for university list
         id: check-list
@@ -78,20 +80,14 @@ jobs:
       - name: Run AI agent to process university list
         run: |
           UNIVERSITIES_LIST_FILE="${{ steps.config.outputs.universities_list_file }}"
+          INPUT_FILE="${{ steps.config.outputs.input_file }}"
           mkdir -p data
-          python university_list_processor.py --input "$UNIVERSITIES_LIST_FILE" --output data/universities.json
+          python university_list_processor.py --input "$UNIVERSITIES_LIST_FILE" --output "$INPUT_FILE"
           
       - name: Display generated universities.json
         run: |
           echo "Generated universities.json:"
-          cat data/universities.json
-          
-      - name: Upload universities.json as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: universities-data
-          path: data/universities.json
-          retention-days: 7
+          cat "${{ steps.config.outputs.input_file }}"
 
   scrape-universities:
     name: Scrape University Admissions Pages
@@ -108,100 +104,44 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
           
-      - name: Download universities.json artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: universities-data
-          path: data
-          
-      - name: Install dependencies for scraper
+      - name: Install minimal dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install charset-normalizer multidict yarl async-timeout attrs idna typing-extensions
-          pip install aiohttp beautifulsoup4
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install -r requirements-minimal.txt
           
-          # Install other dependencies if needed
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt --no-deps || pip install -r requirements.txt
-          fi
-          
-      - name: Run university scraper
+      - name: Verify dependencies
         run: |
-          # Verify data directory and universities.json exist
+          python -c "import aiohttp, bs4; print('Dependencies verified successfully')"
+          
+      - name: Extract config values
+        id: config
+        run: |
+          # Use Python to extract values from config.py
+          INPUT_FILE=$(python -c "import config; print(config.INPUT_FILE)")
+          OUTPUT_FILE=$(python -c "import config; print(config.OUTPUT_FILE)")
+          echo "input_file=$INPUT_FILE" >> $GITHUB_OUTPUT
+          echo "output_file=$OUTPUT_FILE" >> $GITHUB_OUTPUT
+          
+      - name: Run scraper
+        run: |
+          # Create data directory if it doesn't exist
           mkdir -p data
-          if [ ! -f "data/universities.json" ]; then
-            echo "Error: universities.json not found!"
-            exit 1
-          fi
           
           # Run the scraper
           python main.py
           
-      - name: Check if data was collected
-        id: check-data
+      - name: Check and display scraping results
         run: |
-          if [ -f "data/admissions_data.json" ]; then
-            FILESIZE=$(stat -c%s "data/admissions_data.json")
-            echo "filesize=$FILESIZE" >> $GITHUB_OUTPUT
-            if [ "$FILESIZE" -gt 100 ]; then
-              echo "valid=true" >> $GITHUB_OUTPUT
-            else
-              echo "valid=false" >> $GITHUB_OUTPUT
-            fi
+          OUTPUT_FILE="${{ steps.config.outputs.output_file }}"
+          if [ -f "$OUTPUT_FILE" ]; then
+            echo "Scraping results:"
+            cat "$OUTPUT_FILE"
+            
+            echo -e "\n\nUniversities successfully scraped:"
+            python -c "import json; data = json.load(open('$OUTPUT_FILE')); print('\n'.join([f\"- {uni['name']}\" for uni in data]))"
           else
-            echo "valid=false" >> $GITHUB_OUTPUT
-            # Create empty data file to prevent subsequent steps from failing
-            echo "[]" > data/admissions_data.json
-          fi
-          
-      - name: List found universities
-        if: steps.check-data.outputs.valid == 'true'
-        run: |
-          echo "Universities data successfully collected:"
-          python -c "import json; data = json.load(open('data/admissions_data.json')); print('\n'.join([f\"- {uni['name']}\" for uni in data]))"
-          
-      - name: Commit and push if data changed
-        run: |
-          git config --global user.name 'GitHub Actions Bot'
-          git config --global user.email 'actions@github.com'
-          git add data/admissions_data.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update admissions data [skip ci]" && git push)
-          
-      - name: Upload admissions data as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: admissions-data
-          path: data/admissions_data.json
-          retention-days: 30
-          
-  notify:
-    name: Notify about scraper results
-    needs: scrape-universities
-    runs-on: ubuntu-latest
-    if: ${{ always() }}
-    
-    steps:
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          
-      - name: Download admissions data artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: admissions-data
-          path: ./data
-          
-      - name: Generate summary
-        id: summary
-        run: |
-          if [ -f "data/admissions_data.json" ]; then
-            COUNT=$(python -c "import json; print(len(json.load(open('data/admissions_data.json'))))")
-            echo "Universities scraped: $COUNT"
-            echo "count=$COUNT" >> $GITHUB_OUTPUT
-          else
-            echo "No data was collected"
-            echo "count=0" >> $GITHUB_OUTPUT
+            echo "Error: No scraping results found in $OUTPUT_FILE"
+            exit 1
           fi
 
       # Optional: Add email notification
