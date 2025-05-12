@@ -27,6 +27,75 @@ class UniversityData(BaseModel):
     admissions_requirements: List[str] = Field(default_factory=list, description="List of admissions requirements")
     application_deadlines: List[str] = Field(default_factory=list, description="List of application deadlines")
 
+# Custom CSS Extraction Strategy with better error handling
+class CustomJsonCssExtractionStrategy(JsonCssExtractionStrategy):
+    """
+    Enhanced JsonCssExtractionStrategy with improved error handling
+    """
+    def extract(self, html_content: str) -> Dict:
+        """
+        Extract data from HTML content using CSS selectors with improved error handling.
+        
+        Args:
+            html_content (str): The HTML content to extract data from.
+            
+        Returns:
+            Dict: A dictionary of extracted data.
+        """
+        try:
+            # Parse the HTML
+            parsed_html = self._parse_html(html_content)
+            result = {}
+            
+            # Check if baseSelector exists in schema and handle it
+            if hasattr(self, 'baseSelector') and self.baseSelector:
+                try:
+                    base_elements = self._get_base_elements(parsed_html, self.baseSelector)
+                except Exception as e:
+                    logging.warning(f"Error getting base elements: {str(e)}")
+                    # Continue with document as base instead of failing
+                    base_elements = [parsed_html]
+            else:
+                # Use the whole document as base if no baseSelector
+                base_elements = [parsed_html]
+            
+            # Extract fields from first base element
+            if base_elements and len(base_elements) > 0:
+                base_element = base_elements[0]
+                
+                # Process each field in the schema
+                for field_name, field_config in self.schema.items():
+                    try:
+                        # Extract the field data
+                        if "selector" in field_config:
+                            result[field_name] = self._extract_field(
+                                base_element, field_config, field_name
+                            )
+                    except Exception as e:
+                        logging.warning(f"Error extracting field '{field_name}': {str(e)}")
+                        # Set empty result for failed field
+                        if field_config.get("type") == "list":
+                            result[field_name] = []
+                        else:
+                            result[field_name] = None
+            
+            return result
+        except Exception as e:
+            logging.warning(f"CSS extraction error: {str(e)}")
+            # Return empty result on failure
+            return {}
+            
+    def _extract_field(self, base_element, field_config, field_name):
+        """Extract a field value using the field configuration."""
+        try:
+            return super()._extract_field(base_element, field_config, field_name)
+        except Exception as e:
+            logging.warning(f"Error in field extraction for '{field_name}': {str(e)}")
+            # Return appropriate empty value based on field type
+            if field_config.get("type") == "list":
+                return []
+            return None
+
 def load_university_urls(filename=config.INPUT_FILE):
     """Loads university URLs dynamically from JSON."""
     try:
@@ -59,7 +128,8 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
         }
     }
     
-    css_extractor = JsonCssExtractionStrategy(css_schema)
+    # Use our custom extractor with better error handling
+    css_extractor = CustomJsonCssExtractionStrategy(css_schema)
     
     # Create markdown generator with content filter
     # In Crawl4AI 0.6.3, we need to use markdown_generator instead of content_filter directly
