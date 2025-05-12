@@ -3,7 +3,7 @@ import json
 import asyncio
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, BackgroundTasks, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import config
 from main import load_university_urls, process_universities
@@ -17,6 +17,20 @@ class CrawlStatus(BaseModel):
     total_universities: int
     processed_universities: int = 0
     last_updated: str = ""
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "job_id": "job_1_1714675432",
+                    "status": "initializing",
+                    "total_universities": 0,
+                    "processed_universities": 0,
+                    "last_updated": "2025-05-12T15:30:32.425Z"
+                }
+            ]
+        }
+    }
 
 # In-memory storage for job status
 # In a production setting, you'd use a database
@@ -106,7 +120,7 @@ async def run_crawl_job(job_id: str):
     results = []
     
     # Process universities in batches
-    batch_size = 5
+    batch_size = 3  # Reduce from 5 to 3 for better stability in CI
     for i in range(0, len(valid_universities), batch_size):
         batch = valid_universities[i:i+batch_size]
         

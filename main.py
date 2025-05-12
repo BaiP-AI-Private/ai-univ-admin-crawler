@@ -4,6 +4,8 @@ import logging
 import time
 import os
 from typing import List, Dict, Any, Optional
+
+# Import for Pydantic v2
 from pydantic import BaseModel, Field
 
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
@@ -18,12 +20,12 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 
-# Define the extraction schema using Pydantic
+# Define the extraction schema using Pydantic v2
 class UniversityData(BaseModel):
     """Schema for university data extraction"""
-    courses: List[str] = Field(description="List of courses or programs offered")
-    admissions_requirements: List[str] = Field(description="List of admissions requirements")
-    application_deadlines: List[str] = Field(description="List of application deadlines")
+    courses: List[str] = Field(default_factory=list, description="List of courses or programs offered")
+    admissions_requirements: List[str] = Field(default_factory=list, description="List of admissions requirements")
+    application_deadlines: List[str] = Field(default_factory=list, description="List of application deadlines")
 
 def load_university_urls(filename=config.INPUT_FILE):
     """Loads university URLs dynamically from JSON."""
