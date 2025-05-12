@@ -5,17 +5,7 @@ on:
   schedule:
     - cron: '0 2 * * 1'
   
-  # Run when changes are made to key files
-  push:
-    branches:
-      - main
-    paths:
-      - 'data/list_of_universities.txt'
-      - 'university_list_processor.py'
-      - 'main.py'
-      - '.github/workflows/univ-admin-scraper.yml'
-  
-  # Allow manual trigger
+  # Allow manual trigger from GitHub UI
   workflow_dispatch:
     inputs:
       reason:
@@ -59,9 +49,11 @@ jobs:
           if [ -f "$UNIVERSITIES_LIST_FILE" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
             echo "List of universities found at $UNIVERSITIES_LIST_FILE"
+            echo "First few lines of the file:"
+            head -n 5 "$UNIVERSITIES_LIST_FILE"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "ERROR: No $UNIVERSITIES_LIST_FILE file found. Please create this file with a list of universities, one per line."
+            echo "ERROR: No $UNIVERSITIES_LIST_FILE file found. Please create this file with university names and optional fallback URLs."
             exit 1
           fi
       
@@ -82,7 +74,7 @@ jobs:
           UNIVERSITIES_LIST_FILE="${{ steps.config.outputs.universities_list_file }}"
           INPUT_FILE="${{ steps.config.outputs.input_file }}"
           mkdir -p data
-          python university_list_processor.py --input "$UNIVERSITIES_LIST_FILE" --output "$INPUT_FILE"
+          python university_list_processor.py --input "$UNIVERSITIES_LIST_FILE" --output "$INPUT_FILE" --debug
           
       - name: Display generated universities.json
         run: |
@@ -139,6 +131,20 @@ jobs:
             
             echo -e "\n\nUniversities successfully scraped:"
             python -c "import json; data = json.load(open('$OUTPUT_FILE')); print('\n'.join([f\"- {uni['name']}\" for uni in data]))"
+            
+            echo -e "\n\nScraping Statistics:"
+            python -c """
+import json
+data = json.load(open('$OUTPUT_FILE'))
+total = len(data)
+courses_found = sum(1 for uni in data if uni.get('courses') and uni['courses'][0] != 'Not found')
+req_found = sum(1 for uni in data if uni.get('admissions_requirements') and uni['admissions_requirements'][0] != 'Not found')
+deadlines_found = sum(1 for uni in data if uni.get('application_deadlines') and uni['application_deadlines'][0] != 'Not found')
+print(f'Total universities: {total}')
+print(f'Universities with course info: {courses_found} ({courses_found/total*100:.1f}%)')
+print(f'Universities with requirements info: {req_found} ({req_found/total*100:.1f}%)')
+print(f'Universities with deadline info: {deadlines_found} ({deadlines_found/total*100:.1f}%)')
+"""
           else
             echo "Error: No scraping results found in $OUTPUT_FILE"
             exit 1

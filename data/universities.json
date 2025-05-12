@@ -4,31 +4,35 @@
         "url": "https://college.harvard.edu/admissions"
     },
     {
-        "name": "MIT",
-        "url": "https://www.admissions.mit.edu"
+        "name": "Massachusetts Institute of Technology",
+        "url": "https://www.mit.edu/admissions-aid/"
     },
     {
         "name": "Stanford University",
-        "url": "https://admission.stanford.edu/apply"
+        "url": "https://admission.stanford.edu/apply/"
     },
     {
         "name": "Princeton University",
-        "url": "https://admission.princeton.edu"
+        "url": "https://admission.princeton.edu/"
     },
     {
-        "name": "UC Berkeley",
-        "url": "https://admissions.berkeley.edu"
+        "name": "University of California Berkeley",
+        "url": "https://admissions.berkeley.edu/"
     },
     {
         "name": "Yale University",
-        "url": "https://admissions.yale.edu"
+        "url": "https://admissions.yale.edu/"
     },
     {
         "name": "University of Michigan",
-        "url": "https://admissions.umich.edu"
+        "url": "https://admissions.umich.edu/"
     },
     {
         "name": "Cornell University",
-        "url": "https://admissions.cornell.edu"
+        "url": "https://admissions.cornell.edu/"
+    },
+    {
+        "name": "University College London (UCL)",
+        "url": "https://www.ucl.ac.uk/prospective-students"
     }
 ]

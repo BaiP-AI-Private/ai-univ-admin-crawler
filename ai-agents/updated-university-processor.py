@@ -8,8 +8,8 @@ It uses pattern matching, domain knowledge, and web verification to generate
 accurate university admissions URLs.
 
 Format of input CSV:
-    University Name,Optional Fallback URL,Country Hint
-    University of Cambridge,https://www.undergraduate.study.cam.ac.uk/applying,UK
+    University Name,Optional Fallback URL
+    University of Cambridge,https://www.undergraduate.study.cam.ac.uk/applying
 
 Usage:
     python university_list_processor.py --input data/list_of_universities.txt --output data/universities.json
