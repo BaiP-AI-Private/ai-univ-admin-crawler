@@ -5,7 +5,17 @@ on:
   schedule:
     - cron: '0 2 * * 1'
   
-  # Allow manual trigger from GitHub UI
+  # Run when changes are made to key files
+  push:
+    branches:
+      - main
+    paths:
+      - 'data/list_of_universities.txt'
+      - 'university_list_processor.py'
+      - 'main.py'
+      - '.github/workflows/univ-admin-scraper.yml'
+  
+  # Allow manual trigger
   workflow_dispatch:
     inputs:
       reason:
@@ -14,8 +24,8 @@ on:
         default: 'Manual trigger'
 
 jobs:
-  scrape:
-    name: Scrape University Admissions Pages
+  process-university-list:
+    name: Process University List
     runs-on: ubuntu-latest
     
     steps:
@@ -28,43 +38,100 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
           
-      - name: Create requirements-minimal.txt
+      - name: Install dependencies for AI agent
         run: |
-          cat << EOF > requirements-minimal.txt
-          charset-normalizer==2.1.1
-          multidict==6.0.4
-          yarl==1.8.2
-          async-timeout==4.0.2
-          attrs==23.1.0
-          typing-extensions==4.5.0
-          idna==3.4
-          aiohttp==3.8.5
-          bs4==0.0.1
-          beautifulsoup4==4.12.2
-          soupsieve==2.4.1
-          EOF
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
           
-          echo "Created minimal requirements file:"
-          cat requirements-minimal.txt
-          
-      - name: Install minimal dependencies
+      - name: Extract config values
+        id: config
         run: |
-          python -m pip install --upgrade pip wheel setuptools
-          python -m pip install -r requirements-minimal.txt
+          # Use Python to extract values from config.py
+          UNIVERSITIES_LIST_FILE=$(python -c "import config; print(config.UNIVERSITIES_LIST_FILE)")
+          echo "universities_list_file=$UNIVERSITIES_LIST_FILE" >> $GITHUB_OUTPUT
           
-      - name: Verify dependencies
+      - name: Check for university list
+        id: check-list
         run: |
-          python -c "import aiohttp, bs4; print('Dependencies verified successfully')"
-          
-      - name: Run scraper
+          UNIVERSITIES_LIST_FILE="${{ steps.config.outputs.universities_list_file }}"
+          if [ -f "$UNIVERSITIES_LIST_FILE" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "List of universities found at $UNIVERSITIES_LIST_FILE"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "ERROR: No $UNIVERSITIES_LIST_FILE file found. Please create this file with a list of universities, one per line."
+            exit 1
+          fi
+      
+      - name: Verify AI agent script
+        id: check-agent
         run: |
-          # Create data directory if it doesn't exist
+          if [ -f "university_list_processor.py" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "AI agent script found"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "ERROR: university_list_processor.py not found. Please add the AI agent script to your repository."
+            exit 1
+          fi
+      
+      - name: Run AI agent to process university list
+        run: |
+          UNIVERSITIES_LIST_FILE="${{ steps.config.outputs.universities_list_file }}"
           mkdir -p data
+          python university_list_processor.py --input "$UNIVERSITIES_LIST_FILE" --output data/universities.json
           
-          # Check if universities.json exists in data directory
+      - name: Display generated universities.json
+        run: |
+          echo "Generated universities.json:"
+          cat data/universities.json
+          
+      - name: Upload universities.json as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: universities-data
+          path: data/universities.json
+          retention-days: 7
+
+  scrape-universities:
+    name: Scrape University Admissions Pages
+    needs: process-university-list
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          
+      - name: Download universities.json artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: universities-data
+          path: data
+          
+      - name: Install dependencies for scraper
+        run: |
+          python -m pip install --upgrade pip
+          pip install charset-normalizer multidict yarl async-timeout attrs idna typing-extensions
+          pip install aiohttp beautifulsoup4
+          
+          # Install other dependencies if needed
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt --no-deps || pip install -r requirements.txt
+          fi
+          
+      - name: Run university scraper
+        run: |
+          # Verify data directory and universities.json exist
+          mkdir -p data
           if [ ! -f "data/universities.json" ]; then
-            echo "Creating sample universities.json file..."
-            echo '[{"name":"Harvard University","url":"https://college.harvard.edu/admissions"},{"name":"MIT","url":"https://www.admissions.mit.edu"}]' > data/universities.json
+            echo "Error: universities.json not found!"
+            exit 1
           fi
           
           # Run the scraper
@@ -87,7 +154,20 @@ jobs:
             echo "[]" > data/admissions_data.json
           fi
           
-      - name: Upload data as artifact
+      - name: List found universities
+        if: steps.check-data.outputs.valid == 'true'
+        run: |
+          echo "Universities data successfully collected:"
+          python -c "import json; data = json.load(open('data/admissions_data.json')); print('\n'.join([f\"- {uni['name']}\" for uni in data]))"
+          
+      - name: Commit and push if data changed
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions@github.com'
+          git add data/admissions_data.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update admissions data [skip ci]" && git push)
+          
+      - name: Upload admissions data as artifact
         uses: actions/upload-artifact@v4
         with:
           name: admissions-data
@@ -96,20 +176,17 @@ jobs:
           
   notify:
     name: Notify about scraper results
-    needs: scrape
+    needs: scrape-universities
     runs-on: ubuntu-latest
     if: ${{ always() }}
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      
-      - name: Download data artifact
+          
+      - name: Download admissions data artifact
         uses: actions/download-artifact@v4
         with:
           name: admissions-data
@@ -119,9 +196,12 @@ jobs:
         id: summary
         run: |
           if [ -f "data/admissions_data.json" ]; then
-            echo "Universities scraped: $(python -c "import json; print(len(json.load(open('data/admissions_data.json'))))")"
+            COUNT=$(python -c "import json; print(len(json.load(open('data/admissions_data.json'))))")
+            echo "Universities scraped: $COUNT"
+            echo "count=$COUNT" >> $GITHUB_OUTPUT
           else
             echo "No data was collected"
+            echo "count=0" >> $GITHUB_OUTPUT
           fi
 
       # Optional: Add email notification
