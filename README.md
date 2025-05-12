@@ -27,9 +27,9 @@ This project is a web crawler built with Python that scrapes university admissio
 │   └── dashboard.html        # Web dashboard for data visualization
 ├── .github/
 │   └── workflows/
-│       ├── ci_cd.yml             # CI/CD pipeline configuration
-│       ├── docker-build-push.yml # Docker image build and push workflow
-│       └── scraper-workflow.yml  # University scraper scheduled workflow
+│       ├── ci_cd.yml               # CI/CD pipeline configuration
+│       ├── docker-build-push.yml   # Docker image build and push workflow
+│       └── univ-admin-scraper.yml  # University scraper scheduled workflow
 ├── models/                   # AI models for data extraction and analysis
 ├── utils/                    # Utility functions for the scraper
 ├── tests/                    # Test suite for the scraper
