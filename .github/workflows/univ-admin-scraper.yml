@@ -123,7 +123,7 @@ jobs:
           profile: minimal
           override: true
           
-      # Install system dependencies for Playwright
+      # Install system dependencies for Playwright with reduced list (removed libasound2)
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -147,7 +147,6 @@ jobs:
             libgbm1 \
             libpango-1.0-0 \
             libcairo2 \
-            libasound2 \
             libatspi2.0-0
             
       # Install Python dependencies in a specific order to avoid conflicts
