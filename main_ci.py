@@ -66,7 +66,9 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
         session_id=f"university-{name}-css",
         cache_mode=CacheMode.PREFER_CACHE,
         wait_for_selector="body",
-        follow_redirects=True
+        follow_redirects=True,
+        # Set timeout in CrawlerRunConfig instead of BrowserConfig
+        page_timeout=config.DEFAULT_TIMEOUT * 1000  # Convert to milliseconds
     )
     
     try:
@@ -137,7 +139,7 @@ async def process_universities(universities: List[Dict[str, str]]) -> List[Dict[
     browser_config = BrowserConfig(
         headless=True,  # Run in headless mode
         ignore_https_errors=True,  # Ignore HTTPS errors
-        timeout=config.DEFAULT_TIMEOUT * 1000,  # Convert to milliseconds
+        # Remove timeout from here - it's not a valid parameter for BrowserConfig
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
     )
     
