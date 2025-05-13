@@ -181,55 +181,55 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
         logging.info(f"Using Harvard-specific extraction schema")
         css_schema = {
             "courses": {
-                "selector": ".degree-program-container, .concentrations-container, .field-item, div.programs, ul.course-list, .majors, .degrees, .academics, .course-listings",
+                "selector": ".degree-program-container, .concentrations-container, .field-item, div.programs, ul.course-list, .majors, .degrees, .academics, .course-listings, .field-items a, .field-content a, .main-container a, .main-content a, h3, h2 + ul li, h3 + ul li, .field-items li, .node-content li, #main-content li, .content li, .concentration-list li, #concentrations-list li, .academic-programs li, .academic-departments li",
                 "type": "list"
             },
             "course_descriptions": {
-                "selector": ".program-description, .concentration-description, .course-description, .field-item p",
+                "selector": ".program-description, .concentration-description, .course-description, .field-item p, .field-content p, .main-content p, .academics p, .program-info p, .course-info p, .concentration-info p, .major-description p, .field-description p",
                 "type": "list"
             },
             "admissions_requirements": {
-                "selector": "div.requirements, .admission-requirements, #admissions-requirements, .requirements-content, .admission, .eligibility, ul.requirements, .application-requirements, .apply-requirements",
+                "selector": "div.requirements, .admission-requirements, #admissions-requirements, .requirements-content, .admission, .eligibility, ul.requirements, .application-requirements, .apply-requirements, #application-requirements, .admissions p, .application p, .apply p, #admissions p, #apply p, .admissions li, .application li, .apply li, #admissions li, #apply li",
                 "type": "list"
             },
             "application_deadlines": {
-                "selector": ".deadlines-container, .important-dates, #application-deadlines, .deadlines-content, div.deadlines, .dates, table.deadlines, .calendar, .timeline, .due-dates",
+                "selector": ".deadlines-container, .important-dates, #application-deadlines, .deadlines-content, div.deadlines, .dates, table.deadlines, .calendar, .timeline, .due-dates, .apply h3, .admissions h3, .deadlines h3, #deadlines h3, .application h3, #application h3, .admissions h4, .application h4, .deadlines h4, .apply h4, .dates h4, .admissions strong, .application strong, time, .date, .deadline-date, .apply p:contains('deadline'), .apply p:contains('January'), .apply p:contains('November'), .apply p:contains('December')",
                 "type": "list"
             },
             "early_admission": {
-                "selector": ".early-action, .early-decision, #early-admission, .early-admission-content",
+                "selector": ".early-action, .early-decision, #early-admission, .early-admission-content, p:contains('Early Action'), p:contains('Early Decision'), h3:contains('Early Action'), h3:contains('Early Decision'), h4:contains('Early Action'), h4:contains('Early Decision'), div:contains('Early Action'), div:contains('Early Decision'), .apply p:contains('November'), .apply p:contains('December'), .apply li:contains('November'), .apply li:contains('December'), .deadlines p:contains('November'), .deadlines p:contains('December')",
                 "type": "list"
             },
             "regular_admission": {
-                "selector": ".regular-decision, .regular-admission, #regular-admission, .regular-admission-content",
+                "selector": ".regular-decision, .regular-admission, #regular-admission, .regular-admission-content, p:contains('Regular Decision'), p:contains('Regular Admission'), h3:contains('Regular Decision'), h3:contains('Regular Admission'), h4:contains('Regular Decision'), h4:contains('Regular Admission'), div:contains('Regular Decision'), div:contains('Regular Admission'), .apply p:contains('January'), .apply li:contains('January'), .deadlines p:contains('January')",
                 "type": "list"
             }
         }
     else:
-        # Default schema for other universities
+        # Improved default schema for other universities
         css_schema = {
             "courses": {
-                "selector": "div.programs, ul.course-list, .majors, .degrees, .academics, .concentration",
+                "selector": "div.programs, ul.course-list, .majors, .degrees, .academics, .concentration, .field-of-study, .study-areas, .curriculum, .courses, .majors-list, .programs-list, .degrees-list, h3 + ul li, h2 + ul li, .main-content li, .content li, .academic-programs li, .academic-departments li",
                 "type": "list"
             },
             "course_descriptions": {
-                "selector": ".program-description, .course-description, .major-description",
+                "selector": ".program-description, .course-description, .major-description, .degree-description, .academics p, .major-info p, .program-info p, .concentration-info p, .curriculum p, .courses p",
                 "type": "list"
             },
             "admissions_requirements": {
-                "selector": "div.requirements, .admission, .eligibility, ul.requirements, .application-requirements",
+                "selector": "div.requirements, .admission, .eligibility, ul.requirements, .application-requirements, .admissions-info, .criteria, .prerequisites, .qualifications, .admissions p, .apply p, .requirements p, .admissions li, .apply li, .requirements li",
                 "type": "list"
             },
             "application_deadlines": {
-                "selector": "div.deadlines, .dates, table.deadlines, .calendar, .timeline, .due-dates",
+                "selector": "div.deadlines, .dates, table.deadlines, .calendar, .timeline, .due-dates, .important-dates, .key-dates, .admissions-calendar, .application-timeline, .deadline, h3:contains('deadline'), h4:contains('deadline'), p:contains('deadline'), li:contains('deadline'), time, .date",
                 "type": "list"
             },
             "early_admission": {
-                "selector": ".early-action, .early-decision, #early-admission",
+                "selector": ".early-action, .early-decision, #early-admission, p:contains('Early Action'), p:contains('Early Decision'), h3:contains('Early Action'), h3:contains('Early Decision'), h4:contains('Early Action'), h4:contains('Early Decision'), .dates:contains('November'), .dates:contains('December'), .deadlines:contains('November'), .deadlines:contains('December')",
                 "type": "list"
             },
             "regular_admission": {
-                "selector": ".regular-decision, .regular-admission, #regular-admission",
+                "selector": ".regular-decision, .regular-admission, #regular-admission, p:contains('Regular Decision'), p:contains('Regular Admission'), h3:contains('Regular Decision'), h3:contains('Regular Admission'), h4:contains('Regular Decision'), h4:contains('Regular Admission'), .dates:contains('January'), .deadlines:contains('January')",
                 "type": "list"
             }
         }
@@ -259,7 +259,12 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
         additional_pages = [
             "https://college.harvard.edu/academics/fields-study",
             "https://college.harvard.edu/admissions/apply",
-            "https://college.harvard.edu/admissions/apply/first-year-applicants"
+            "https://college.harvard.edu/admissions/apply/first-year-applicants",
+            "https://college.harvard.edu/academics/liberal-arts-sciences/concentrations",
+            "https://college.harvard.edu/academics/liberal-arts-sciences",
+            "https://college.harvard.edu/admissions/why-harvard/academic-environment",
+            "https://college.harvard.edu/admissions/admissions-statistics",
+            "https://college.harvard.edu/admissions/why-harvard/affordability"
         ]
     
     try:
@@ -476,8 +481,9 @@ async def main():
     
     # Use a smaller sample for CI to make sure it completes faster
     if os.environ.get('CI'):
-        max_unis = min(1, len(valid_universities))  # Just one university in CI for faster completion
-        logging.info(f"CI environment detected, limiting to {max_unis} universities")
+        # Changed to process all universities in CI mode
+        max_unis = len(valid_universities)  # Process all universities in CI mode
+        logging.info(f"CI environment detected, processing all {max_unis} universities")
         valid_universities = valid_universities[:max_unis]
     
     # Extract data

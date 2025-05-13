@@ -234,6 +234,67 @@ jobs:
             echo "Error: No scraping results found in $OUTPUT_FILE"
             exit 1
           fi
+      
+      # Enrich data with AI (Claude or GROQ)
+      - name: Enrich data
+        run: |
+          echo "Enriching data with AI..."
+          
+          # Setup API keys for AI providers (if available)
+          if [ "${{ secrets.CLAUDE_API_KEY }}" != "" ]; then
+            export CLAUDE_API_KEY="${{ secrets.CLAUDE_API_KEY }}"
+            echo "Using provided Claude API key"
+            PROVIDER="claude"
+          elif [ "${{ secrets.GROQ_API_KEY }}" != "" ]; then
+            export GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}"
+            echo "Using provided GROQ API key"
+            PROVIDER="groq"
+          else
+            echo "No AI API keys found, using simulation mode"
+            PROVIDER="auto"
+          fi
+          
+          # Run the enrichment script
+          python enrich_with_ai.py --provider $PROVIDER
+          
+          if [ -f "data/enriched_data.json" ]; then
+            echo "Enrichment succeeded."
+            echo "Sample of enriched data:"
+            python -c "import json; f=open('data/enriched_data.json'); data=json.load(f); print(json.dumps(data[0], indent=2)[:500] + '...'); f.close()"
+          else
+            echo "Enrichment failed."
+            exit 1
+          fi
+          
+      # Generate human-readable reports
+      - name: Generate reports
+        run: |
+          echo "Generating human-readable reports..."
+          
+          # Create reports directory
+          mkdir -p reports
+          
+          # Run the report generation script
+          python generate_reports.py
+          
+          echo "Reports generated:"
+          ls -la reports/
+          
+          # Sample of a report
+          if [ -f "reports/index.md" ]; then
+            echo "Sample of the index file:"
+            head -n 20 reports/index.md
+          else
+            echo "Report generation seems to have failed."
+          fi
+          
+      # Upload reports as artifacts
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: university-reports
+          path: reports/
+          retention-days: 7
           
       # Upload the scraping results as an artifact
       - name: Upload admissions data
