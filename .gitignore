@@ -1,4 +1,50 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local environment files
 .env
-*.csv
-__pycache__
-venv
+.env.local
+
+# Output data (excluding the example input file)
+data/*
+!data/universities.json
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+
+# Playwright browser binaries
+.cache/

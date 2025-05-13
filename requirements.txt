@@ -1,11 +1,9 @@
-aiohttp==3.8.5
-beautifulsoup4==4.12.2
-fastapi==0.95.1
-pydantic==1.10.7
-requests==2.31.0
-uvicorn==0.22.0
+crawl4ai==0.6.3
+pydantic>=2.10.0
+fastapi>=0.100.0
+python-dotenv==1.0.0
 transformers==4.31.0
 torch==2.2.0
 pandas==1.5.3
-python-dotenv==1.0.0
 tqdm==4.65.0
+uvicorn==0.22.0

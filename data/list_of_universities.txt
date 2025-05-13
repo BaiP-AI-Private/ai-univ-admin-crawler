@@ -1,0 +1,22 @@
+University Name,Fallback URL,Country Hint
+Harvard University,https://college.harvard.edu/admissions,US
+Massachusetts Institute of Technology,https://www.mitadmissions.org,US
+Stanford University,https://admission.stanford.edu/apply,US
+Yale University,https://admissions.yale.edu,US
+Princeton University,https://admission.princeton.edu,US
+UC Berkeley,https://admissions.berkeley.edu,US
+Columbia University,https://undergrad.admissions.columbia.edu,US
+University of Chicago,https://collegeadmissions.uchicago.edu,US
+University of Oxford,https://www.ox.ac.uk/admissions/undergraduate,UK
+University of Cambridge,https://www.undergraduate.study.cam.ac.uk/applying,UK
+Imperial College London,https://www.imperial.ac.uk/study/ug/apply,UK
+University College London,https://www.ucl.ac.uk/prospective-students/undergraduate/applications,UK
+London School of Economics,https://www.lse.ac.uk/study-at-lse/Undergraduate/Prospective-Students/How-to-Apply,UK
+University of Edinburgh,https://www.ed.ac.uk/studying/undergraduate/applying,UK
+University of Manchester,https://www.manchester.ac.uk/study/undergraduate/applications,UK
+University of Toronto,https://www.future.utoronto.ca/apply,Canada
+University of British Columbia,https://you.ubc.ca/applying-ubc,Canada
+Australian National University,https://www.anu.edu.au/study/apply,Australia
+University of Melbourne,https://study.unimelb.edu.au/how-to-apply,Australia
+National University of Singapore,https://www.nus.edu.sg/admissions,Singapore
+Universiti Malaya,https://study.um.edu.my/how-to-apply-bachelor-rsquo-s-degree,Malaysia

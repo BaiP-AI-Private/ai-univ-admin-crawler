@@ -1,10 +1,10 @@
 name: University Admissions Scraper
 
 on:
-  # Run on schedule (once a week on Monday at 2 AM UTC)
+  # Run on schedule (once a week on Wednesday at 2 AM UTC)
   schedule:
-    - cron: '0 2 * * 1'
-  
+    - cron: '0 2 * * 3'
+
   # Allow manual trigger from GitHub UI
   workflow_dispatch:
     inputs:
@@ -14,8 +14,8 @@ on:
         default: 'Manual trigger'
 
 jobs:
-  scrape:
-    name: Scrape University Admissions Pages
+  process-university-list:
+    name: Process University List
     runs-on: ubuntu-latest
     
     steps:
@@ -25,129 +25,281 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.12'
           cache: 'pip'
           
-      - name: Create requirements-minimal.txt
+      - name: Install dependencies for AI agent
         run: |
-          cat << EOF > requirements-minimal.txt
-          charset-normalizer==2.1.1
-          multidict==6.0.4
-          yarl==1.8.2
-          async-timeout==4.0.2
-          attrs==23.1.0
-          typing-extensions==4.5.0
-          idna==3.4
-          aiohttp==3.8.5
-          bs4==0.0.1
-          beautifulsoup4==4.12.2
-          soupsieve==2.4.1
-          EOF
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
           
-          echo "Created minimal requirements file:"
-          cat requirements-minimal.txt
+      - name: Extract config values
+        id: config
+        run: |
+          # Use Python to extract values from config.py
+          UNIVERSITIES_LIST_FILE=$(python -c "import config; print(config.UNIVERSITIES_LIST_FILE)")
+          INPUT_FILE=$(python -c "import config; print(config.INPUT_FILE)")
+          echo "universities_list_file=$UNIVERSITIES_LIST_FILE" >> $GITHUB_OUTPUT
+          echo "input_file=$INPUT_FILE" >> $GITHUB_OUTPUT
           
-      - name: Install minimal dependencies
+      - name: Check for university list
+        id: check-list
+        run: |
+          UNIVERSITIES_LIST_FILE="${{ steps.config.outputs.universities_list_file }}"
+          if [ -f "$UNIVERSITIES_LIST_FILE" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "List of universities found at $UNIVERSITIES_LIST_FILE"
+            echo "First few lines of the file:"
+            head -n 5 "$UNIVERSITIES_LIST_FILE"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "ERROR: No $UNIVERSITIES_LIST_FILE file not found. Please create this file with university names and optional fallback URLs."
+            exit 1
+          fi
+      
+      - name: Verify AI agent script
+        id: check-agent
+        run: |
+          if [ -f "university_list_processor.py" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "AI agent script found"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "ERROR: university_list_processor.py not found. Please add the AI agent script to your repository."
+            exit 1
+          fi
+      
+      - name: Run AI agent to process university list
+        run: |
+          UNIVERSITIES_LIST_FILE="${{ steps.config.outputs.universities_list_file }}"
+          INPUT_FILE="${{ steps.config.outputs.input_file }}"
+          mkdir -p data
+          python university_list_processor.py --input "$UNIVERSITIES_LIST_FILE" --output "$INPUT_FILE" --debug
+          
+      - name: Display generated universities.json
+        run: |
+          echo "Generated universities.json:"
+          cat "${{ steps.config.outputs.input_file }}"
+          
+      # Upload the generated universities.json as an artifact to share between jobs
+      - name: Upload universities.json
+        uses: actions/upload-artifact@v4
+        with:
+          name: universities-json
+          path: ${{ steps.config.outputs.input_file }}
+          retention-days: 1
+
+  scrape-universities:
+    name: Scrape University Admissions Pages with Crawl4AI
+    needs: process-university-list
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          
+      # Download the universities.json file generated in the previous job
+      - name: Download universities.json
+        uses: actions/download-artifact@v4
+        with:
+          name: universities-json
+          path: data
+          
+      # Set CI environment variable
+      - name: Set CI environment variable
+        run: echo "CI=true" >> $GITHUB_ENV
+          
+      # Install Rust for tokenizers
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          
+      # Install system dependencies for Playwright with reduced list (removed libasound2)
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libglib2.0-0 \
+            libnss3 \
+            libnspr4 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libdbus-1-3 \
+            libxcb1 \
+            libxkbcommon0 \
+            libx11-6 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxext6 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libpango-1.0-0 \
+            libcairo2 \
+            libatspi2.0-0
+            
+      # Install Python dependencies in a specific order to avoid conflicts
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip wheel setuptools
-          python -m pip install -r requirements-minimal.txt
           
-      - name: Verify dependencies
+          # Install minimal dependencies first (without transformers)
+          pip install "pydantic>=2.10.0" "fastapi>=0.100.0" "crawl4ai==0.6.3" "python-dotenv==1.0.0" "pandas==1.5.3" "tqdm==4.65.0" "uvicorn==0.22.0"
+          
+          # Verify the installation worked
+          python -c "import crawl4ai, pydantic, fastapi; print('Pydantic version:', pydantic.__version__); print('FastAPI version:', fastapi.__version__); print('Dependencies verified successfully')"
+          
+      # Run Crawl4AI setup using direct Playwright installation
+      - name: Install Playwright browsers
         run: |
-          python -c "import aiohttp, bs4; print('Dependencies verified successfully')"
+          python -m playwright install chromium
+          python -m playwright install-deps chromium
           
+      # Extract config values
+      - name: Extract config values
+        id: config
+        run: |
+          INPUT_FILE=$(python -c "import config; print(config.INPUT_FILE)")
+          OUTPUT_FILE=$(python -c "import config; print(config.OUTPUT_FILE)")
+          echo "input_file=$INPUT_FILE" >> $GITHUB_OUTPUT
+          echo "output_file=$OUTPUT_FILE" >> $GITHUB_OUTPUT
+          
+      # Verify universities.json exists
+      - name: Verify universities.json exists
+        run: |
+          if [ ! -f "${{ steps.config.outputs.input_file }}" ]; then
+            echo "ERROR: universities.json file not found at ${{ steps.config.outputs.input_file }}"
+            exit 1
+          else
+            echo "Found universities.json:"
+            ls -la data/
+          fi
+          
+      # Run the scraper with the CI-specific main.py
       - name: Run scraper
         run: |
           # Create data directory if it doesn't exist
           mkdir -p data
           
-          # Check if universities.json exists in data directory
-          if [ ! -f "data/universities.json" ]; then
-            echo "Creating sample universities.json file..."
-            echo '[{"name":"Harvard University","url":"https://college.harvard.edu/admissions"},{"name":"MIT","url":"https://www.admissions.mit.edu"}]' > data/universities.json
-          fi
+          # Add debug output for environment variables
+          echo "Python version:"
+          python --version
           
-          # Run the scraper
-          python main.py
+          echo "Directory contents:"
+          ls -la
           
-      - name: Check if data was collected
-        id: check-data
+          echo "Data directory contents:"
+          ls -la data
+          
+          echo "Python path:"
+          python -c "import sys; print(sys.path)"
+          
+          echo "Installed packages:"
+          pip list
+          
+          # Run the scraper with debug output
+          PYTHONPATH=$PYTHONPATH:$(pwd) python -u main_ci.py
+          
+      # Check and display scraping results
+      - name: Check and display scraping results
+        id: summary
         run: |
-          if [ -f "data/admissions_data.json" ]; then
-            FILESIZE=$(stat -c%s "data/admissions_data.json")
-            echo "filesize=$FILESIZE" >> $GITHUB_OUTPUT
-            if [ "$FILESIZE" -gt 100 ]; then
-              echo "valid=true" >> $GITHUB_OUTPUT
-            else
-              echo "valid=false" >> $GITHUB_OUTPUT
-            fi
+          OUTPUT_FILE="${{ steps.config.outputs.output_file }}"
+          if [ -f "$OUTPUT_FILE" ]; then
+            echo "Scraping results:"
+            cat "$OUTPUT_FILE"
+            
+            # Get university count - use a one-liner for safer execution
+            UNI_COUNT=$(python -c "import json; f=open('$OUTPUT_FILE'); data=json.load(f); print(len(data)); f.close()")
+            echo "count=$UNI_COUNT" >> $GITHUB_OUTPUT
+            
+            echo -e "\n\nUniversities successfully scraped:"
+            python -c "import json; f=open('$OUTPUT_FILE'); data=json.load(f); print('\n'.join([f\"- {uni['name']}\" for uni in data])); f.close()"
+            
+            echo -e "\n\nScraping Statistics:"
+            python scripts/display_results.py
+            echo "Scraping completed successfully."
           else
-            echo "valid=false" >> $GITHUB_OUTPUT
-            # Create empty data file to prevent subsequent steps from failing
-            echo "[]" > data/admissions_data.json
+            echo "Error: No scraping results found in $OUTPUT_FILE"
+            exit 1
+          fi
+      
+      # Enrich data with AI (Claude or GROQ)
+      - name: Enrich data
+        run: |
+          echo "Enriching data with AI..."
+          
+          # Setup API keys for AI providers (if available)
+          if [ "${{ secrets.CLAUDE_API_KEY }}" != "" ]; then
+            export CLAUDE_API_KEY="${{ secrets.CLAUDE_API_KEY }}"
+            echo "Using provided Claude API key"
+            PROVIDER="claude"
+          elif [ "${{ secrets.GROQ_API_KEY }}" != "" ]; then
+            export GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}"
+            echo "Using provided GROQ API key"
+            PROVIDER="groq"
+          else
+            echo "No AI API keys found, using simulation mode"
+            PROVIDER="auto"
           fi
           
-      - name: Upload data as artifact
+          # Run the enrichment script
+          python enrich_with_ai.py --provider $PROVIDER
+          
+          if [ -f "data/enriched_data.json" ]; then
+            echo "Enrichment succeeded."
+            echo "Sample of enriched data:"
+            python -c "import json; f=open('data/enriched_data.json'); data=json.load(f); print(json.dumps(data[0], indent=2)[:500] + '...'); f.close()"
+          else
+            echo "Enrichment failed."
+            exit 1
+          fi
+          
+      # Generate human-readable reports
+      - name: Generate reports
+        run: |
+          echo "Generating human-readable reports..."
+          
+          # Create reports directory
+          mkdir -p reports
+          
+          # Run the report generation script
+          python generate_reports.py
+          
+          echo "Reports generated:"
+          ls -la reports/
+          
+          # Sample of a report
+          if [ -f "reports/index.md" ]; then
+            echo "Sample of the index file:"
+            head -n 20 reports/index.md
+          else
+            echo "Report generation seems to have failed."
+          fi
+          
+      # Upload reports as artifacts
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: university-reports
+          path: reports/
+          retention-days: 7
+          
+      # Upload the scraping results as an artifact
+      - name: Upload admissions data
         uses: actions/upload-artifact@v4
         with:
           name: admissions-data
-          path: data/admissions_data.json
-          retention-days: 30
-          
-  notify:
-    name: Notify about scraper results
-    needs: scrape
-    runs-on: ubuntu-latest
-    if: ${{ always() }}
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      
-      - name: Download data artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: admissions-data
-          path: ./data
-          
-      - name: Generate summary
-        id: summary
-        run: |
-          if [ -f "data/admissions_data.json" ]; then
-            echo "Universities scraped: $(python -c "import json; print(len(json.load(open('data/admissions_data.json'))))")"
-          else
-            echo "No data was collected"
-          fi
-
-      # Optional: Add email notification
-      # - name: Send email notification
-      #   if: ${{ always() }}
-      #   uses: dawidd6/action-send-mail@v3
-      #   with:
-      #     server_address: ${{ secrets.MAIL_SERVER }}
-      #     server_port: ${{ secrets.MAIL_PORT }}
-      #     username: ${{ secrets.MAIL_USERNAME }}
-      #     password: ${{ secrets.MAIL_PASSWORD }}
-      #     subject: University Scraper Results - ${{ steps.summary.outputs.count }} Universities
-      #     to: your-email@example.com
-      #     from: GitHub Actions <actions@github.com>
-      #     body: |
-      #       The university admissions scraper has completed.
-      #       ${{ steps.summary.outputs.count }} universities were successfully scraped.
-      #       See the latest data in the repository: https://github.com/${{ github.repository }}/blob/main/data/admissions_data.json
-      
-      # Optional: Add Slack notification
-      # - name: Send Slack notification
-      #   uses: 8398a7/action-slack@v3
-      #   with:
-      #     status: ${{ job.status }}
-      #     fields: repo,message,workflow,job,commit
-      #     text: |
-      #       Scraper completed: ${{ steps.summary.outputs.count }} universities were scraped.
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          path: ${{ steps.config.outputs.output_file }}
+          retention-days: 7

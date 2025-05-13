@@ -1,66 +1,26 @@
 version: '3.8'
 
 services:
-  # Main scraper service
-  scraper:
+  crawler:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: univ-scraper
     volumes:
       - ./data:/app/data
     environment:
-      - LOG_LEVEL=INFO
-      - RATE_LIMIT=3
-      - TIMEOUT=15
+      - PYTHONUNBUFFERED=1
     command: python main.py
-    networks:
-      - scraper-network
 
-  # Web dashboard (optional)
-  dashboard:
-    image: nginx:alpine
-    container_name: scraper-dashboard
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
-      - ./dashboard:/usr/share/nginx/html
-      - ./data:/usr/share/nginx/html/data
+      - ./data:/app/data
     ports:
-      - "8080:80"
-    depends_on:
-      - scraper
-    networks:
-      - scraper-network
-
-  # Scheduled jobs with cron
-  scheduler:
-    image: mcuadros/ofelia:latest
-    container_name: scraper-scheduler
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      - scraper
-    command: daemon --docker
-    labels:
-      ofelia.job-run.scraper-weekly: "docker exec univ-scraper python main.py"
-      ofelia.job-run.scraper-weekly.schedule: "0 0 * * 1"  # Run every Monday at midnight
-      ofelia.job-run.report-weekly: "docker exec univ-scraper python report_generator.py --input data/admissions_data.json --output data/report.md"
-      ofelia.job-run.report-weekly.schedule: "30 0 * * 1"  # Run 30 minutes after the scraper
-    networks:
-      - scraper-network
-
-  # Proxy service for rotating IPs and handling rate limits (optional)
-  proxy:
-    image: georgegeden/rotating-proxy:latest
-    container_name: rotating-proxy
-    ports:
-      - "5566:5566"  # Proxy port
-      - "4444:4444"  # Control port
+      - "8000:8000"
     environment:
-      - TOR_INSTANCES=5
-      - NEW_CIRCUIT_PERIOD=30
-    networks:
-      - scraper-network
-
-networks:
-  scraper-network:
-    driver: bridge
+      - PYTHONUNBUFFERED=1
+    command: python api.py
+    depends_on:
+      - crawler

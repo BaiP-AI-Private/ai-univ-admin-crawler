@@ -13,6 +13,7 @@ DEFAULT_CSS_SELECTORS = {
 
 # Paths for Data Storage
 DATA_DIR = "data"
+UNIVERSITIES_LIST_FILE = f"{DATA_DIR}/list_of_universities.txt"
 INPUT_FILE = f"{DATA_DIR}/universities.json"
 OUTPUT_FILE = f"{DATA_DIR}/admissions_data.json"
 
