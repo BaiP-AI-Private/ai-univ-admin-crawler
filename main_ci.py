@@ -68,11 +68,22 @@ class CustomJsonCssExtractionStrategy(JsonCssExtractionStrategy):
                 # Process each field in the schema
                 for field_name, field_config in self.schema.items():
                     try:
-                        # Extract the field data
+                        # Extract the field data - NOTE: We're not passing any args here
+                        # and letting the parent method handle it
                         if "selector" in field_config:
-                            result[field_name] = self._extract_field(
-                                base_element, field_config, field_name, url
-                            )
+                            # The parent class seems to want more than just our specific arguments
+                            # So we'll let it use its default _extract_field implementation
+                            elements = self._select_elements(base_element, field_config["selector"])
+                            if elements:
+                                if field_config.get("type") == "list":
+                                    result[field_name] = [self._get_element_text(el).strip() for el in elements if self._get_element_text(el).strip()]
+                                else:
+                                    result[field_name] = self._get_element_text(elements[0]).strip()
+                            else:
+                                if field_config.get("type") == "list":
+                                    result[field_name] = []
+                                else:
+                                    result[field_name] = None
                     except Exception as e:
                         logging.warning(f"Error extracting field '{field_name}': {str(e)}")
                         # Set empty result for failed field
@@ -86,32 +97,6 @@ class CustomJsonCssExtractionStrategy(JsonCssExtractionStrategy):
             logging.warning(f"CSS extraction error: {str(e)}")
             # Return empty result on failure
             return {}
-            
-    def _extract_field(self, base_element, field_config, field_name, url=None):
-        """
-        Extract a field value using the field configuration.
-        
-        Args:
-            base_element: The base element to extract from
-            field_config: Configuration for extraction
-            field_name: Name of the field
-            url: Optional URL of the page
-            
-        Returns:
-            The extracted value
-        """
-        try:
-            # Call parent method with correct parameters
-            if url is not None:
-                return super()._extract_field(base_element, field_config, field_name, url)
-            else:
-                return super()._extract_field(base_element, field_config, field_name)
-        except Exception as e:
-            logging.warning(f"Error in field extraction for '{field_name}': {str(e)}")
-            # Return appropriate empty value based on field type
-            if field_config.get("type") == "list":
-                return []
-            return None
 
 def load_university_urls(filename=config.INPUT_FILE):
     """Loads university URLs dynamically from JSON."""

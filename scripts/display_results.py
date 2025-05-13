@@ -25,6 +25,11 @@ def load_data(file_path):
 def display_statistics(data):
     """Display statistics about the scraped data."""
     total_universities = len(data)
+    
+    if total_universities == 0:
+        print("No universities data found.")
+        return
+        
     found_courses = sum(1 for uni in data if uni.get("courses") and uni["courses"][0] != "Not found")
     found_descriptions = sum(1 for uni in data if uni.get("course_descriptions") and uni["course_descriptions"][0] != "Not found")
     found_requirements = sum(1 for uni in data if uni.get("admissions_requirements") and uni["admissions_requirements"][0] != "Not found")
@@ -46,20 +51,36 @@ def main():
     # Default output file from the scraper
     file_path = os.environ.get("OUTPUT_FILE", "data/admissions_data.json")
     
-    # Load the data
-    data = load_data(file_path)
+    print(f"Using data file: {file_path}")
     
-    # Print header
-    print("\nScraping results:")
-    print(json.dumps(data, indent=1))
+    # Load the data
+    try:
+        data = load_data(file_path)
+    except Exception as e:
+        print(f"Error loading data: {e}")
+        sys.exit(1)
     
     # List successfully scraped universities
     print("\nUniversities successfully scraped:")
     for uni in data:
         print(f"- {uni['name']}")
     
-    print("\n")
+    # Print a sample of the data - not the whole thing which would be too verbose
+    if data and len(data) > 0:
+        print("\nSample data from first university:")
+        first_uni = data[0]
+        sample_data = {
+            "name": first_uni["name"],
+            "url": first_uni["url"],
+            "courses": first_uni.get("courses", [])[:3] if first_uni.get("courses") else [],
+            "course_descriptions": first_uni.get("course_descriptions", [])[:2] if first_uni.get("course_descriptions") else [],
+            "admissions_requirements": first_uni.get("admissions_requirements", [])[:2] if first_uni.get("admissions_requirements") else [],
+            "application_deadlines": first_uni.get("application_deadlines", [])[:2] if first_uni.get("application_deadlines") else []
+        }
+        print(json.dumps(sample_data, indent=2))
+    
     # Display statistics
+    print("\n")
     display_statistics(data)
 
 if __name__ == "__main__":
