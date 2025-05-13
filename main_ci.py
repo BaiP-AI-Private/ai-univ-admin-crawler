@@ -32,12 +32,14 @@ class CustomJsonCssExtractionStrategy(JsonCssExtractionStrategy):
     """
     Enhanced JsonCssExtractionStrategy with improved error handling
     """
-    def extract(self, html_content: str) -> Dict:
+    def extract(self, url: str, html_content: str, **kwargs) -> Dict:
         """
         Extract data from HTML content using CSS selectors with improved error handling.
         
         Args:
-            html_content (str): The HTML content to extract data from.
+            url (str): The URL of the page being extracted
+            html_content (str): The HTML content to extract data from
+            **kwargs: Additional keyword arguments
             
         Returns:
             Dict: A dictionary of extracted data.
