@@ -204,29 +204,15 @@ jobs:
             echo "Scraping results:"
             cat "$OUTPUT_FILE"
             
-            # Get university count
-            UNI_COUNT=$(python -c "import json; print(len(json.load(open('$OUTPUT_FILE'))))")
+            # Get university count - use a one-liner for safer execution
+            UNI_COUNT=$(python -c "import json; f=open('$OUTPUT_FILE'); data=json.load(f); print(len(data)); f.close()")
             echo "count=$UNI_COUNT" >> $GITHUB_OUTPUT
             
             echo -e "\n\nUniversities successfully scraped:"
-            python -c "import json; data = json.load(open('$OUTPUT_FILE')); print('\n'.join([f\"- {uni['name']}\" for uni in data]))"
+            python -c "import json; f=open('$OUTPUT_FILE'); data=json.load(f); print('\n'.join([f\"- {uni['name']}\" for uni in data])); f.close()"
             
             echo -e "\n\nScraping Statistics:"
-            python -c """
-            import json
-            data = json.load(open('$OUTPUT_FILE'))
-            total = len(data)
-            if total > 0:
-                courses_found = sum(1 for uni in data if uni.get('courses') and uni['courses'][0] != 'Not found')
-                req_found = sum(1 for uni in data if uni.get('admissions_requirements') and uni['admissions_requirements'][0] != 'Not found')
-                deadlines_found = sum(1 for uni in data if uni.get('application_deadlines') and uni['application_deadlines'][0] != 'Not found')
-                print(f'Total universities: {total}')
-                print(f'Universities with course info: {courses_found} ({courses_found/total*100:.1f}%)')
-                print(f'Universities with requirements info: {req_found} ({req_found/total*100:.1f}%)')
-                print(f'Universities with deadline info: {deadlines_found} ({deadlines_found/total*100:.1f}%)')
-            else:
-                print('No universities were processed')
-            """
+            python scripts/display_results.py
             echo "Scraping completed successfully."
           else
             echo "Error: No scraping results found in $OUTPUT_FILE"

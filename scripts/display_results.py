@@ -17,9 +17,30 @@ def load_data(file_path):
             return json.load(f)
     except FileNotFoundError:
         print(f"Error: File not found at {file_path}")
+        # Check if file_path is a relative path and we need to check from the repo root
+        # Try to find the file from the repo root
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        repo_root = os.path.abspath(os.path.join(script_dir, '..'))
+        alt_path = os.path.join(repo_root, file_path)
+        
+        if os.path.exists(alt_path):
+            print(f"Found file at alternate path: {alt_path}")
+            with open(alt_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
         sys.exit(1)
     except json.JSONDecodeError:
         print(f"Error: Invalid JSON in {file_path}")
+        # Try to diagnose the JSON issue
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                print(f"File content (first 100 chars): {content[:100]}...")
+                print(f"File size: {len(content)} bytes")
+        except Exception as e:
+            print(f"Could not read file: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error loading {file_path}: {e}")
         sys.exit(1)
 
 def display_statistics(data):

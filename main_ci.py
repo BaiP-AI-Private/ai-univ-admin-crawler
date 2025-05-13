@@ -32,6 +32,49 @@ class CustomJsonCssExtractionStrategy(JsonCssExtractionStrategy):
     """
     Enhanced JsonCssExtractionStrategy with improved error handling
     """
+    def _select_elements(self, element, selector):
+        """
+        Select elements using a CSS selector.
+        
+        Args:
+            element: The element to select from
+            selector: The CSS selector to use
+            
+        Returns:
+            List of selected elements
+        """
+        try:
+            # Use the soup's select method to find elements matching the selector
+            if hasattr(element, 'select'):
+                return element.select(selector)
+            return []
+        except Exception as e:
+            logging.warning(f"Error selecting elements with selector '{selector}': {str(e)}")
+            return []
+    
+    def _get_element_text(self, element):
+        """
+        Get the text content of an element.
+        
+        Args:
+            element: The element to get text from
+            
+        Returns:
+            String of text content
+        """
+        try:
+            # First try get_text() method (BeautifulSoup)
+            if hasattr(element, 'get_text'):
+                return element.get_text()
+            # Then try text property
+            elif hasattr(element, 'text'):
+                return element.text
+            # Finally just convert to string
+            return str(element)
+        except Exception as e:
+            logging.warning(f"Error getting element text: {str(e)}")
+            return ""
+    
     def extract(self, url: str, html_content: str, **kwargs) -> Dict:
         """
         Extract data from HTML content using CSS selectors with improved error handling.
@@ -68,11 +111,8 @@ class CustomJsonCssExtractionStrategy(JsonCssExtractionStrategy):
                 # Process each field in the schema
                 for field_name, field_config in self.schema.items():
                     try:
-                        # Extract the field data - NOTE: We're not passing any args here
-                        # and letting the parent method handle it
+                        # Extract the field data
                         if "selector" in field_config:
-                            # The parent class seems to want more than just our specific arguments
-                            # So we'll let it use its default _extract_field implementation
                             elements = self._select_elements(base_element, field_config["selector"])
                             if elements:
                                 if field_config.get("type") == "list":
@@ -401,6 +441,29 @@ async def main():
             json.dump(data, f, indent=4)
         logging.info(f"Saved structured data to {config.OUTPUT_FILE}")
         
+        # Verify the data was saved correctly
+        try:
+            with open(config.OUTPUT_FILE, "r", encoding="utf-8") as f:
+                test_data = json.load(f)
+                logging.info(f"Successfully verified JSON data (contains {len(test_data)} universities)")
+        except Exception as e:
+            logging.error(f"Error verifying saved data: {e}")
+            # Try writing a simplified version as fallback
+            simplified_data = []
+            for uni in data:
+                simplified = {
+                    "name": uni["name"],
+                    "url": uni["url"],
+                    "scraped_at": uni["scraped_at"]
+                }
+                simplified_data.append(simplified)
+            
+            # Write simplified data as fallback
+            fallback_file = f"{config.DATA_DIR}/simplified_data.json"
+            with open(fallback_file, "w", encoding="utf-8") as f:
+                json.dump(simplified_data, f, indent=4)
+            logging.info(f"Saved simplified data to {fallback_file}")
+        
         # Print a summary
         found_courses = sum(1 for uni in data if uni["courses"] and uni["courses"][0] != "Not found")
         found_descriptions = sum(1 for uni in data if uni.get("course_descriptions") and uni["course_descriptions"][0] != "Not found")
@@ -420,6 +483,16 @@ async def main():
         
     except Exception as e:
         logging.error(f"Error saving data: {e}")
+        # Emergency save using a more direct approach
+        try:
+            import os
+            temp_file = os.path.join(os.path.dirname(config.OUTPUT_FILE), "emergency_data.json")
+            with open(temp_file, "w", encoding="utf-8") as f:
+                for uni in data:
+                    f.write(f"{{\"name\": \"{uni['name']}\", \"url\": \"{uni['url']}\"}}\n")
+            logging.info(f"Emergency data saved to {temp_file}")
+        except Exception as emergency_error:
+            logging.error(f"Emergency save also failed: {emergency_error}")
 
 if __name__ == "__main__":
     asyncio.run(main())
