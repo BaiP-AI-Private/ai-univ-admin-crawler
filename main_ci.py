@@ -71,7 +71,7 @@ class CustomJsonCssExtractionStrategy(JsonCssExtractionStrategy):
                         # Extract the field data
                         if "selector" in field_config:
                             result[field_name] = self._extract_field(
-                                base_element, field_config, field_name
+                                base_element, field_config, field_name, url
                             )
                     except Exception as e:
                         logging.warning(f"Error extracting field '{field_name}': {str(e)}")
@@ -87,10 +87,25 @@ class CustomJsonCssExtractionStrategy(JsonCssExtractionStrategy):
             # Return empty result on failure
             return {}
             
-    def _extract_field(self, base_element, field_config, field_name):
-        """Extract a field value using the field configuration."""
+    def _extract_field(self, base_element, field_config, field_name, url=None):
+        """
+        Extract a field value using the field configuration.
+        
+        Args:
+            base_element: The base element to extract from
+            field_config: Configuration for extraction
+            field_name: Name of the field
+            url: Optional URL of the page
+            
+        Returns:
+            The extracted value
+        """
         try:
-            return super()._extract_field(base_element, field_config, field_name)
+            # Call parent method with correct parameters
+            if url is not None:
+                return super()._extract_field(base_element, field_config, field_name, url)
+            else:
+                return super()._extract_field(base_element, field_config, field_name)
         except Exception as e:
             logging.warning(f"Error in field extraction for '{field_name}': {str(e)}")
             # Return appropriate empty value based on field type
@@ -114,21 +129,63 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
     
     logging.info(f"Processing {name} at {url}")
     
-    # Configure the extraction strategy using CSS since we're in CI
-    css_schema = {
-        "courses": {
-            "selector": "div.programs, ul.course-list, .majors, .degrees, .academics",
-            "type": "list"
-        },
-        "admissions_requirements": {
-            "selector": "div.requirements, .admission, .eligibility, ul.requirements",
-            "type": "list"
-        },
-        "application_deadlines": {
-            "selector": "div.deadlines, .dates, table.deadlines, .calendar",
-            "type": "list"
+    # Enhanced extraction schema with more detailed selectors for Harvard
+    if "harvard" in url.lower():
+        logging.info(f"Using Harvard-specific extraction schema")
+        css_schema = {
+            "courses": {
+                "selector": ".degree-program-container, .concentrations-container, .field-item, div.programs, ul.course-list, .majors, .degrees, .academics, .course-listings",
+                "type": "list"
+            },
+            "course_descriptions": {
+                "selector": ".program-description, .concentration-description, .course-description, .field-item p",
+                "type": "list"
+            },
+            "admissions_requirements": {
+                "selector": "div.requirements, .admission-requirements, #admissions-requirements, .requirements-content, .admission, .eligibility, ul.requirements, .application-requirements, .apply-requirements",
+                "type": "list"
+            },
+            "application_deadlines": {
+                "selector": ".deadlines-container, .important-dates, #application-deadlines, .deadlines-content, div.deadlines, .dates, table.deadlines, .calendar, .timeline, .due-dates",
+                "type": "list"
+            },
+            "early_admission": {
+                "selector": ".early-action, .early-decision, #early-admission, .early-admission-content",
+                "type": "list"
+            },
+            "regular_admission": {
+                "selector": ".regular-decision, .regular-admission, #regular-admission, .regular-admission-content",
+                "type": "list"
+            }
         }
-    }
+    else:
+        # Default schema for other universities
+        css_schema = {
+            "courses": {
+                "selector": "div.programs, ul.course-list, .majors, .degrees, .academics, .concentration",
+                "type": "list"
+            },
+            "course_descriptions": {
+                "selector": ".program-description, .course-description, .major-description",
+                "type": "list"
+            },
+            "admissions_requirements": {
+                "selector": "div.requirements, .admission, .eligibility, ul.requirements, .application-requirements",
+                "type": "list"
+            },
+            "application_deadlines": {
+                "selector": "div.deadlines, .dates, table.deadlines, .calendar, .timeline, .due-dates",
+                "type": "list"
+            },
+            "early_admission": {
+                "selector": ".early-action, .early-decision, #early-admission",
+                "type": "list"
+            },
+            "regular_admission": {
+                "selector": ".regular-decision, .regular-admission, #regular-admission",
+                "type": "list"
+            }
+        }
     
     # Use our custom extractor with better error handling
     css_extractor = CustomJsonCssExtractionStrategy(css_schema)
@@ -140,7 +197,6 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
     )
     
     # Fixed: Use correct parameters for Crawl4AI 0.6.3
-    # Removed content_filter as it's not a valid parameter
     run_config_css = CrawlerRunConfig(
         extraction_strategy=css_extractor,
         markdown_generator=md_generator,  # Use markdown generator with filter
@@ -150,31 +206,74 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
         page_timeout=config.DEFAULT_TIMEOUT * 1000  # Convert to milliseconds
     )
     
+    # If it's Harvard, we'll also explore some specific pages for deeper data
+    additional_pages = []
+    if "harvard" in url.lower():
+        additional_pages = [
+            "https://college.harvard.edu/academics/fields-study",
+            "https://college.harvard.edu/admissions/apply",
+            "https://college.harvard.edu/admissions/apply/first-year-applicants"
+        ]
+    
     try:
         # Use CSS extraction (more reliable in CI environments)
         logging.info(f"Attempting CSS-based extraction for {name}")
         result = await crawler.arun(url=url, config=run_config_css)
         
         # Check if extraction succeeded with CSS
+        extracted = {}
         if result.extracted_content and isinstance(result.extracted_content, dict):
             extracted = result.extracted_content
             logging.info(f"CSS extraction successful for {name}")
         else:
             logging.warning(f"CSS extraction failed for {name}")
-            extracted = {}
+        
+        # Process additional pages for Harvard to get more complete data
+        additional_data = {}
+        for additional_url in additional_pages:
+            try:
+                logging.info(f"Extracting additional data from {additional_url}")
+                add_result = await crawler.arun(url=additional_url, config=run_config_css)
+                
+                if add_result.extracted_content and isinstance(add_result.extracted_content, dict):
+                    # For each field, combine with existing data
+                    for key, value in add_result.extracted_content.items():
+                        if key in extracted and isinstance(extracted[key], list) and isinstance(value, list):
+                            # Combine lists and remove duplicates
+                            combined = extracted[key] + value
+                            # Remove duplicates while preserving order
+                            seen = set()
+                            unique = []
+                            for item in combined:
+                                item_str = str(item).strip()
+                                if item_str and item_str not in seen and item_str != "None" and item_str != "Not found":
+                                    seen.add(item_str)
+                                    unique.append(item)
+                            extracted[key] = unique
+                        elif key not in extracted or not extracted[key]:
+                            extracted[key] = value
+                    
+                    logging.info(f"Successfully extracted additional data from {additional_url}")
+                else:
+                    logging.warning(f"No additional data found at {additional_url}")
+            except Exception as e:
+                logging.warning(f"Error extracting additional data from {additional_url}: {e}")
         
         # Format the data with cleaner structure
         data = {
             "name": name,
             "url": url,
             "courses": extracted.get("courses", ["Not found"]),
+            "course_descriptions": extracted.get("course_descriptions", ["Not found"]),
             "admissions_requirements": extracted.get("admissions_requirements", ["Not found"]),
             "application_deadlines": extracted.get("application_deadlines", ["Not found"]),
+            "early_admission": extracted.get("early_admission", ["Not found"]),
+            "regular_admission": extracted.get("regular_admission", ["Not found"]),
             "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")
         }
         
         # If we got some markdown content but no structured data, we could use that as fallback
-        if all(data[key] == ["Not found"] for key in ["courses", "admissions_requirements", "application_deadlines"]):
+        if all(data[key][0] == "Not found" for key in ["courses", "admissions_requirements", "application_deadlines"]):
             logging.warning(f"No structured data found for {name}, using markdown fallback")
             if hasattr(result, 'markdown') and result.markdown:
                 # Check if markdown is a string or an object with appropriate attributes
@@ -189,19 +288,34 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
                 
                 # Simple keyword matching
                 course_lines = [line.strip() for line in markdown_lines if any(kw in line.lower() for kw in 
-                                ['degree', 'course', 'program', 'major', 'bachelor', 'master', 'phd'])]
+                                ['degree', 'course', 'program', 'major', 'bachelor', 'master', 'phd', 'concentration', 'field of study'])]
                 if course_lines:
-                    data["courses"] = course_lines[:5]  # Limit to first 5 matches
+                    data["courses"] = course_lines[:10]  # Increased to capture more courses
+                
+                description_lines = [line.strip() for line in markdown_lines if len(line.strip()) > 80 and any(kw in line.lower() for kw in 
+                                     ['program', 'study', 'academic', 'field', 'course', 'concentration'])]
+                if description_lines:
+                    data["course_descriptions"] = description_lines[:10]
                 
                 req_lines = [line.strip() for line in markdown_lines if any(kw in line.lower() for kw in 
-                             ['requirement', 'admission', 'prerequisite', 'qualify', 'eligibility', 'gpa', 'test score'])]
+                             ['requirement', 'admission', 'prerequisite', 'qualify', 'eligibility', 'gpa', 'test score', 'application process'])]
                 if req_lines:
-                    data["admissions_requirements"] = req_lines[:5]
+                    data["admissions_requirements"] = req_lines[:10]  # Increased to capture more requirements
                 
                 deadline_lines = [line.strip() for line in markdown_lines if any(kw in line.lower() for kw in 
-                                 ['deadline', 'date', 'application period', 'apply by', 'due by', 'submit by'])]
+                                 ['deadline', 'date', 'application period', 'apply by', 'due by', 'submit by', 'timeline'])]
                 if deadline_lines:
-                    data["application_deadlines"] = deadline_lines[:5]
+                    data["application_deadlines"] = deadline_lines[:10]
+                
+                early_lines = [line.strip() for line in markdown_lines if any(kw in line.lower() for kw in 
+                              ['early action', 'early decision', 'early admission', 'november', 'december'])]
+                if early_lines:
+                    data["early_admission"] = early_lines[:5]
+                
+                regular_lines = [line.strip() for line in markdown_lines if any(kw in line.lower() for kw in 
+                                ['regular decision', 'regular admission', 'january', 'february', 'march', 'april'])]
+                if regular_lines:
+                    data["regular_admission"] = regular_lines[:5]
         
         logging.info(f"Successfully extracted data for {name}")
         return data
@@ -211,8 +325,11 @@ async def extract_university_data(crawler: AsyncWebCrawler, uni: Dict[str, str])
             "name": name,
             "url": url,
             "courses": ["Not found"],
+            "course_descriptions": ["Not found"],
             "admissions_requirements": ["Not found"],
             "application_deadlines": ["Not found"],
+            "early_admission": ["Not found"],
+            "regular_admission": ["Not found"],
             "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "error": str(e)
         }
@@ -301,14 +418,20 @@ async def main():
         
         # Print a summary
         found_courses = sum(1 for uni in data if uni["courses"] and uni["courses"][0] != "Not found")
+        found_descriptions = sum(1 for uni in data if uni.get("course_descriptions") and uni["course_descriptions"][0] != "Not found")
         found_requirements = sum(1 for uni in data if uni["admissions_requirements"] and uni["admissions_requirements"][0] != "Not found")
         found_deadlines = sum(1 for uni in data if uni["application_deadlines"] and uni["application_deadlines"][0] != "Not found")
+        found_early = sum(1 for uni in data if uni.get("early_admission") and uni["early_admission"][0] != "Not found")
+        found_regular = sum(1 for uni in data if uni.get("regular_admission") and uni["regular_admission"][0] != "Not found")
         
         logging.info(f"Scraping Summary:")
         logging.info(f"- Universities processed: {len(data)}/{len(valid_universities)}")
         logging.info(f"- Found course info: {found_courses}/{len(data)}")
+        logging.info(f"- Found course descriptions: {found_descriptions}/{len(data)}")
         logging.info(f"- Found requirements info: {found_requirements}/{len(data)}")
         logging.info(f"- Found deadline info: {found_deadlines}/{len(data)}")
+        logging.info(f"- Found early admission info: {found_early}/{len(data)}")
+        logging.info(f"- Found regular admission info: {found_regular}/{len(data)}")
         
     except Exception as e:
         logging.error(f"Error saving data: {e}")
