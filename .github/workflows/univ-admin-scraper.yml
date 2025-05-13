@@ -192,8 +192,24 @@ jobs:
           # Create data directory if it doesn't exist
           mkdir -p data
           
+          # Add debug output for environment variables
+          echo "Python version:"
+          python --version
+          
+          echo "Directory contents:"
+          ls -la
+          
+          echo "Data directory contents:"
+          ls -la data
+          
+          echo "Python path:"
+          python -c "import sys; print(sys.path)"
+          
+          echo "Installed packages:"
+          pip list
+          
           # Run the scraper with debug output
-          python -u main_ci.py
+          PYTHONPATH=$PYTHONPATH:$(pwd) python -u main_ci.py
           
       # Check and display scraping results
       - name: Check and display scraping results

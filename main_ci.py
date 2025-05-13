@@ -1,17 +1,39 @@
-import asyncio
-import json
-import logging
-import time
-import os
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+#!/usr/bin/env python3
+"""
+University Admissions Scraper - CI Version
+This script is optimized for running in CI environments.
+"""
 
-from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
-from crawl4ai.extraction_strategy import JsonCssExtractionStrategy
-# Note: We'll use markdown generation strategy to handle content filtering properly
-from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
-from crawl4ai.content_filter_strategy import PruningContentFilter
-import config
+# Setup critical error handling for imports
+try:
+    import asyncio
+    import json
+    import logging
+    import time
+    import os
+    import sys
+    from typing import List, Dict, Any, Optional
+    from pydantic import BaseModel, Field
+except ImportError as e:
+    # Write directly to stderr for critical import failures
+    import sys
+    sys.stderr.write(f"CRITICAL IMPORT ERROR: {e}\n")
+    sys.stderr.write(f"Python version: {sys.version}\n")
+    sys.stderr.write(f"Path: {sys.path}\n")
+    sys.exit(1)
+
+try:
+    from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
+    from crawl4ai.extraction_strategy import JsonCssExtractionStrategy
+    # Note: We'll use markdown generation strategy to handle content filtering properly
+    from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+    from crawl4ai.content_filter_strategy import PruningContentFilter
+    import config
+except ImportError as e:
+    # Write directly to stderr for critical import failures
+    sys.stderr.write(f"CRITICAL MODULE IMPORT ERROR: {e}\n")
+    sys.stderr.write("Make sure crawl4ai and related packages are installed\n")
+    sys.exit(1)
 
 # Set up logging
 logging.basicConfig(
@@ -399,8 +421,34 @@ async def process_universities(universities: List[Dict[str, str]]) -> List[Dict[
     return results
 
 async def main():
+    # Double-check imports are available
+    try:
+        import os
+        import sys
+        import json
+        import logging
+        import time
+        import asyncio
+    except ImportError as e:
+        print(f"Critical import error: {e}")
+        sys.exit(1)
+        
     # Ensure data directory exists
-    os.makedirs(config.DATA_DIR, exist_ok=True)
+    try:
+        os.makedirs(config.DATA_DIR, exist_ok=True)
+        print(f"Successfully created/verified data directory: {config.DATA_DIR}")
+    except Exception as e:
+        print(f"Error creating data directory: {e}")
+        # Try alternate approach
+        try:
+            data_dir = "data"
+            os.makedirs(data_dir, exist_ok=True)
+            print(f"Created alternate data directory: {data_dir}")
+        except Exception as alt_e:
+            print(f"Error creating alternate data directory: {alt_e}")
+            # Fallback to current directory
+            print("Using current directory as fallback")
+            config.DATA_DIR = "."
     
     # Load university data
     universities = load_university_urls()
@@ -485,8 +533,10 @@ async def main():
         logging.error(f"Error saving data: {e}")
         # Emergency save using a more direct approach
         try:
+            # Re-import os in case there was an issue with the global import
             import os
-            temp_file = os.path.join(os.path.dirname(config.OUTPUT_FILE), "emergency_data.json")
+            import json as emergency_json
+            temp_file = os.path.join(os.path.dirname(os.path.abspath(config.OUTPUT_FILE)), "emergency_data.json")
             with open(temp_file, "w", encoding="utf-8") as f:
                 for uni in data:
                     f.write(f"{{\"name\": \"{uni['name']}\", \"url\": \"{uni['url']}\"}}\n")
@@ -495,4 +545,34 @@ async def main():
             logging.error(f"Emergency save also failed: {emergency_error}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        print("Starting university scraper script...")
+        # Setup basic logging to console first in case config fails
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        logging.info("Initialized logging")
+        
+        # Run the main async function with proper error handling
+        asyncio.run(main())
+        logging.info("Script completed successfully")
+    except Exception as e:
+        # Handle any unexpected top-level exceptions
+        error_msg = f"CRITICAL ERROR: {e}"
+        # Try to log it properly first
+        try:
+            logging.error(error_msg)
+            logging.error(f"Error type: {type(e).__name__}")
+            # Get traceback info
+            import traceback
+            logging.error(f"Traceback: {traceback.format_exc()}")
+        except:
+            # If logging fails, print directly to stderr
+            sys.stderr.write(f"{error_msg}\n")
+            import traceback
+            sys.stderr.write(f"Traceback: {traceback.format_exc()}\n")
+        
+        # Exit with error code
+        sys.exit(1)
