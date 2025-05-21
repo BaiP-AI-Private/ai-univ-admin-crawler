@@ -7,7 +7,7 @@ Scrapes:
   2. The "Member institutions of the University of London" list.
   3. The "Other recognised bodies" list.
 Resolves each to its official website & validated admissions page.
-Emits: uk_institutions.csv (Name, AdminURL, Country)
+Emits: uk_institutions.csv (University Name, Fallback URL, Country Hint)
 
 If the detected admissions URL returns a non-200 status, the AdminURL field will fallback to the university's main site.
 """
@@ -139,7 +139,7 @@ def main():
     out_path = "uk_institutions.csv"
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["Name", "AdminURL", "Country"])
+        writer.writerow(["University Name", "Fallback URL", "Country Hint"])
 
         count = 0
         for name, href in sorted(unis.items()):
