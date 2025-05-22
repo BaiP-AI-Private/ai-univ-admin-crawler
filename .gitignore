@@ -36,8 +36,8 @@ env/
 .env.local
 
 # Output data (excluding the example input file)
-data/*
-!data/universities.json
+#data/*
+#!data/universities.json
 
 # Log files
 *.log
